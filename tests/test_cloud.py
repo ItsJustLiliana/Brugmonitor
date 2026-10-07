@@ -115,3 +115,33 @@ class CloudTests(unittest.TestCase):
         self.relay.process_pending()
         self.assertEqual(self.sender.call_args.args[0]["status"], "DICHT")
         self.assertFalse(self.sender.call_args.args[0]["update"])
+
+    def test_failed_alert_queue_write_is_retried_on_next_observation(self):
+        self.relay.transition(None, "DICHT", "Onlangs gesloten")
+        with patch.object(self.relay.outbox, "enqueue", side_effect=RuntimeError("locked")):
+            with self.assertRaises(RuntimeError):
+                self.relay.transition("DICHT", "OPEN", "Nog 5 minuten")
+        self.assertTrue(self.relay.transition("OPEN", "OPEN", "Nog 4 minuten"))
+        self.assertTrue(self.relay.process_pending())
+        self.assertFalse(self.sender.call_args.args[0]["update"])
+        self.assertEqual(self.sender.call_args.args[0]["detail"], "Nog 4 minuten")
+
+    def test_failed_detail_queue_write_is_retried(self):
+        self.relay.transition("DICHT", "OPEN", "Nog 5 minuten")
+        self.relay.process_pending()
+        with patch.object(self.relay.outbox, "enqueue", side_effect=RuntimeError("locked")):
+            with self.assertRaises(RuntimeError):
+                self.relay.transition("OPEN", "OPEN", "Langer open dan verwacht")
+        self.relay.transition("OPEN", "OPEN", "Langer open dan verwacht")
+        self.assertTrue(self.relay.process_pending())
+        self.assertTrue(self.sender.call_args.args[0]["update"])
+        self.assertEqual(self.sender.call_args.args[0]["detail"], "Langer open dan verwacht")
+
+    def test_failed_open_alert_is_discarded_when_bridge_closes(self):
+        with patch.object(self.relay.outbox, "enqueue", side_effect=RuntimeError("locked")):
+            with self.assertRaises(RuntimeError):
+                self.relay.transition("DICHT", "OPEN", "Nog 5 minuten")
+        self.relay.transition("OPEN", "DICHT", "Onlangs gesloten")
+        self.assertTrue(self.relay.process_pending())
+        self.assertEqual(self.sender.call_args.args[0]["status"], "DICHT")
+        self.assertIsNone(self.relay.pending_alert)

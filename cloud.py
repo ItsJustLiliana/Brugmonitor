@@ -89,6 +89,7 @@ class FirebaseRelay:
         self.thread = None
         self.current_status = None
         self.current_detail = None
+        self.pending_alert = None
 
     @staticmethod
     def message(payload, ttl):
@@ -127,18 +128,26 @@ class FirebaseRelay:
         return True
 
     def transition(self, previous, current, detail):
+        if current not in ("OPEN", "DICHT"):
+            return False
         old_detail = self.current_detail
-        if current in ("OPEN", "DICHT"):
-            self.current_detail = detail
-            self.current_status = current
-            self.wake.set()
-        if previous in ("OPEN", "DICHT") and current in ("OPEN", "DICHT") and previous != current:
+        self.current_status = current
+        if self.pending_alert != current:
+            self.pending_alert = None
+        if previous in ("OPEN", "DICHT") and previous != current:
+            self.pending_alert = current
+        if self.pending_alert == current:
+            # Leave this flag set if writing fails; retry on the next observation.
             self.outbox.enqueue(current, detail)
+            self.pending_alert = None
+            self.current_detail = detail
             self.wake.set()
             return True
         if previous == current == "OPEN" and old_detail is not None and detail != old_detail:
             self.outbox.enqueue(current, detail, update=True)
             self.wake.set()
+        self.current_detail = detail
+        self.wake.set()
         return False
 
     def start(self):

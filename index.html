@@ -572,7 +572,7 @@
 
         if (data.status === 'OPEN') {
           const remaining = remainingText(data);
-          els.sub.textContent = remaining || 'De brug is open';
+          els.sub.textContent = remaining;
           els.detail.textContent = remaining ? '' : openDetail(data);
         } else {
           els.sub.textContent = '';

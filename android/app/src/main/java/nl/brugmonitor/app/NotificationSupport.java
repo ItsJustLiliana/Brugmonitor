@@ -48,10 +48,14 @@ final class NotificationSupport {
         if (!eventId.isEmpty() && eventId.equals(PushSettings.prefs(c).getString("last_push_event", ""))) return;
         NotificationManager manager = c.getSystemService(NotificationManager.class);
         String tag = "OPEN".equals(status) ? "bridge-open" : "DICHT".equals(status) ? "bridge-closed" : TAG;
+        long notificationTime = System.currentTimeMillis();
         if (update) {
             boolean active = false;
             for (android.service.notification.StatusBarNotification posted : manager.getActiveNotifications()) {
-                if (tag.equals(posted.getTag()) && posted.getId() == ID) active = true;
+                if (tag.equals(posted.getTag()) && posted.getId() == ID) {
+                    active = true;
+                    notificationTime = posted.getNotification().when;
+                }
             }
             if (!active) return; // Do not restore an opening notification the user dismissed.
         }
@@ -64,7 +68,7 @@ final class NotificationSupport {
         PendingIntent open = PendingIntent.getActivity(c, 0, intent, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         Notification notification = new Notification.Builder(c, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_bridge).setContentTitle(title).setContentText(body)
-            .setCategory(Notification.CATEGORY_STATUS)
+            .setWhen(notificationTime).setCategory(Notification.CATEGORY_STATUS)
             .setStyle(new Notification.BigTextStyle().bigText(body)).setContentIntent(open)
             .setOnlyAlertOnce(update).setAutoCancel(true).build();
         clearLegacy(c);
