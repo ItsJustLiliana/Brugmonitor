@@ -12,6 +12,7 @@ import android.widget.Toast;
 
 public class MainActivity extends Activity {
     private WebView web;
+    private android.widget.FrameLayout content;
     private StatusRepository status;
     private AppUpdater updater;
 
@@ -26,8 +27,8 @@ public class MainActivity extends Activity {
         updater = new AppUpdater(this);
         web = new WebView(this);
         // WebView content ignores its own padding on some devices; inset the container instead.
-        android.widget.FrameLayout content = new android.widget.FrameLayout(this);
-        content.setBackgroundColor(android.graphics.Color.WHITE);
+        content = new android.widget.FrameLayout(this);
+        applyNativeTheme(isSystemDarkTheme());
         content.addView(web, new android.widget.FrameLayout.LayoutParams(-1, -1));
         setContentView(content);
         content.setOnApplyWindowInsetsListener((v, insets) -> {
@@ -77,6 +78,23 @@ public class MainActivity extends Activity {
         }
     }
 
+    private boolean isSystemDarkTheme() {
+        int mode = getResources().getConfiguration().uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK;
+        return mode == android.content.res.Configuration.UI_MODE_NIGHT_YES;
+    }
+
+    private void applyNativeTheme(boolean dark) {
+        int background = android.graphics.Color.parseColor(dark ? "#101c22" : "#ffffff");
+        if (content != null) content.setBackgroundColor(background);
+        if (web != null) web.setBackgroundColor(background);
+        getWindow().setStatusBarColor(background);
+        getWindow().setNavigationBarColor(background);
+        androidx.core.view.WindowInsetsControllerCompat controller =
+            androidx.core.view.WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
+        controller.setAppearanceLightStatusBars(!dark);
+        controller.setAppearanceLightNavigationBars(!dark);
+    }
+
     private void toggleNotifications() {
         if (!PushSettings.configured(this)) return;
         if (PushSettings.wanted(this) && PushSettings.prefs(this).getBoolean("push_subscribed", false) && NotificationSupport.allowed(this)) {
@@ -104,6 +122,7 @@ public class MainActivity extends Activity {
         @JavascriptInterface public String getStatusJSON() { return status.json(); }
         @JavascriptInterface public String getPushState() { return PushSettings.json(MainActivity.this); }
         @JavascriptInterface public void toggleNotifications() { runOnUiThread(() -> MainActivity.this.toggleNotifications()); }
+        @JavascriptInterface public void setTheme(String theme) { runOnUiThread(() -> applyNativeTheme("dark".equals(theme))); }
         @JavascriptInterface public void openNotificationSettings() {
             runOnUiThread(() -> {
                 Intent settings = new Intent(android.provider.Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
