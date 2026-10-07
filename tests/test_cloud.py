@@ -91,7 +91,29 @@ class CloudTests(unittest.TestCase):
         message = self.relay.message({"event_id": "widget-1", "status": "OPEN", "detail": "Nog ongeveer 5 minuten open"}, 60)
         self.assertEqual(message.data["body"], "Nog ongeveer 5 minuten")
         self.assertEqual(message.data["detail"], "Nog ongeveer 5 minuten open")
+        self.assertEqual(message.data["live_text"], "")
+        self.assertEqual(message.data["widget_only"], "false")
         self.assertIsNone(message.notification)
+
+    def test_live_widget_update_is_sent_immediately_when_closed_timing_changes(self):
+        first = dict(self.payload, live_text="Onlangs gesloten", detail="Onlangs gesloten")
+        second = dict(self.payload, live_text="7 minuten geleden", detail="Laatste opening: 7 minuten geleden")
+        self.assertTrue(self.relay.publish_widget(first))
+        self.assertFalse(self.relay.publish_widget(first))
+        self.assertTrue(self.relay.publish_widget(second))
+        payload = self.sender.call_args.args[0]
+        self.assertEqual(payload["status"], "DICHT")
+        self.assertEqual(payload["live_text"], "7 minuten geleden")
+        self.assertTrue(payload["widget_only"])
+
+    def test_failed_live_widget_update_retries_same_timing(self):
+        payload = dict(self.payload, detail="Onlangs gesloten")
+        self.sender.side_effect = RuntimeError("temporary")
+        with self.assertLogs("cloud", level="ERROR"):
+            self.assertFalse(self.relay.publish_widget(payload))
+        self.sender.side_effect = None
+        self.assertTrue(self.relay.publish_widget(payload))
+        self.assertEqual(self.sender.call_count, 2)
 
     def test_restart_waits_for_fresh_baseline_and_discards_wrong_old_status(self):
         self.relay.outbox.enqueue("OPEN", "", now=100)
