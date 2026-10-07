@@ -555,6 +555,11 @@
       return 'Nog ongeveer ' + minutes + (minutes === 1 ? ' minuut' : ' minuten') + ' open';
     }
 
+    function openDetail(data) {
+      return /langer\s+open\s+dan\s+verwacht/i.test(data.live_text || data.detail || '')
+        ? 'Langer open dan verwacht' : 'Sluitingstijd onbekend';
+    }
+
     let latestLocalData = null;
     function render(data) {
       latestLocalData = data;
@@ -568,7 +573,7 @@
         if (data.status === 'OPEN') {
           const remaining = remainingText(data);
           els.sub.textContent = remaining || 'De brug is open';
-          els.detail.textContent = remaining ? '' : 'Sluitingstijd onbekend';
+          els.detail.textContent = remaining ? '' : openDetail(data);
         } else {
           els.sub.textContent = '';
           els.detail.textContent = /langer dicht dan verwacht/i.test(data.live_text || '')
@@ -592,7 +597,7 @@
       els.warning.style.display = data.stale ? 'block' : 'none';
       connection.className = 'connection ' + (data.stale ? 'stale' : data.status ? 'live' : '');
       connectionText.textContent = data.stale ? 'Status niet recent bevestigd' : data.status_from_cache ? 'Lokaal opgeslagen status' : data.status ? 'Live verbonden' : 'Status ophalen...';
-      els.liveText.textContent = data.status === 'OPEN' ? (remainingText(data) || 'Sluitingstijd onbekend') : (data.live_text || '—');
+      els.liveText.textContent = data.status === 'OPEN' ? (remainingText(data) || openDetail(data)) : (data.live_text || '—');
       els.lastSuccess.textContent = formatDate(data.last_success);
       els.lastChange.textContent = formatDate(data.last_change);
       renderHistory(data.history);

@@ -78,9 +78,12 @@ class AppTests(unittest.TestCase):
         self.assertFalse(app.state["stale"])
 
     def test_remaining_text_used_by_app_and_push(self):
-        for raw, expected in [("nog +/- 5 minuten", "Nog ongeveer 5 minuten open"), ("nog +/- 1 minuten", "Nog ongeveer 1 minuut open"), ("langer open dan verwacht", "Sluitingstijd onbekend")]:
+        for raw, expected in [("nog +/- 5 minuten", "Nog ongeveer 5 minuten open"), ("nog +/- 1 minuten", "Nog ongeveer 1 minuut open"), ("langer open dan verwacht", "Langer open dan verwacht")]:
             with self.subTest(raw=raw), patch.object(app, "driver") as driver, patch.object(app.time, "sleep"):
                 driver.execute_script.return_value = {"topTexts": [{"text": raw, "y": 1}], "tables": []}
                 result = app.scrape_once()
                 self.assertEqual(result["status"], "OPEN")
                 self.assertEqual(result["detail"], expected)
+                previous = app.state["status"]
+                app.apply_result(result)
+                app.relay.transition.assert_called_with(previous, "OPEN", expected)

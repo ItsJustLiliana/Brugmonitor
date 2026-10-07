@@ -217,7 +217,7 @@ def scrape_once():
 
     elif indicator["type"] == "open_overdue":
         message = "De brug is open"
-        detail = "Sluitingstijd onbekend"
+        detail = "Langer open dan verwacht"
 
     elif indicator["type"] == "closed_overdue":
         message = "De brug is dicht"
