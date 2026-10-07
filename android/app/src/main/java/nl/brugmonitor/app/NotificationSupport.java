@@ -66,11 +66,15 @@ final class NotificationSupport {
         createChannel(c);
         Intent intent = new Intent(c, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         PendingIntent open = PendingIntent.getActivity(c, 0, intent, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
-        Notification notification = new Notification.Builder(c, CHANNEL)
+        Notification.Builder builder = new Notification.Builder(c, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_bridge).setContentTitle(title).setContentText(body)
             .setWhen(notificationTime).setCategory(Notification.CATEGORY_STATUS)
             .setStyle(new Notification.BigTextStyle().bigText(body)).setContentIntent(open)
-            .setOnlyAlertOnce(update).setAutoCancel(true).build();
+            .setOnlyAlertOnce(update).setAutoCancel(true);
+        // A closed status becomes stale quickly; remove it from the tray after 15 minutes.
+        // OPEN notifications keep their existing lifetime and a new OPEN still cancels DICHT immediately.
+        if ("DICHT".equals(status)) builder.setTimeoutAfter(15 * 60 * 1000L);
+        Notification notification = builder.build();
         clearLegacy(c);
         c.getSystemService(NotificationManager.class).notify(tag, ID, notification);
         if (!eventId.isEmpty()) PushSettings.prefs(c).edit().putString("last_push_event", eventId).apply();
