@@ -302,7 +302,7 @@
     body { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; }
     .page { display: flex; flex-direction: column; }
     .page > * { flex-shrink: 0; }
-    .native-app .topbar { padding: 12px 18px; }
+    .native-app .topbar { padding: 8px 18px; }
     .native-app .page { padding-bottom: 20px; }
     .bottom-spacer { height: 24px; flex: none; overflow-anchor: none; }
     .bottom-section { flex: none; overflow-anchor: none; }
@@ -310,9 +310,20 @@
     .update-panel p { color: var(--muted); line-height: 1.5; font-size: 14px; }
     .update-panel button { width: 100%; }
     #warning { margin: 14px 0 0; }
+    html { overscroll-behavior-y: contain; }
+    .status-sub:empty, .status-detail:empty { display: none; }
+    #appUpdates { text-align: center; margin-top: 18px; }
+    #appVersion { margin-bottom: 10px; }
+    #checkUpdateBtn { display: inline-flex; align-items: center; justify-content: center; }
+    .pull-indicator { position: fixed; top: 12px; left: 50%; z-index: 10; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; background: white; border-radius: 50%; box-shadow: 0 3px 14px #17333c33; opacity: 0; transform: translate(-50%, -56px); pointer-events: none; }
+    .pull-indicator.visible { opacity: 1; }
+    .pull-spinner { width: 20px; height: 20px; border: 2px solid #dcebee; border-top-color: var(--blue); border-radius: 50%; }
+    .pull-indicator.busy .pull-spinner { animation: pull-spin .7s linear infinite; }
+    @keyframes pull-spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
+  <div id="pullIndicator" class="pull-indicator" role="status" aria-label="Verversen" aria-hidden="true"><span class="pull-spinner" aria-hidden="true"></span></div>
   <header class="topbar"><span class="brand-icon" aria-hidden="true"><svg width="22" height="20" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 34h38M11 10v29M37 10v29M11 12Q24 32 37 12M18 23v11M24 26v8M30 23v11"/></svg></span> Brugmonitor</header>
 
   <main class="page">
@@ -377,22 +388,10 @@
           </table>
         </div>
 
-        <div id="notificationSettings" hidden>
-          <button id="notificationSettingsBtn" class="secondary-btn" type="button">Meldingen op scherm instellen</button>
-          <p class="notify-help">Zet in Android ‘Weergeven als pop-up’ of ‘Op scherm tonen’ aan voor Brugstatus.</p>
-        </div>
-
         <div id="appUpdates" hidden>
           <p class="notify-help" id="appVersion"></p>
           <button id="checkUpdateBtn" class="secondary-btn" type="button">Controleren op updates</button>
           <p class="notify-help" id="updateCheckMessage" role="status"></p>
-        </div>
-        <div class="details-actions">
-          <button id="refreshBtn" class="secondary-btn" type="button">Verversen</button>
-          <a class="link-btn"
-             href="https://www.brug-open.nl/brug/sas%20van%20gent/sas%20van%20gent%20brug"
-             target="_blank"
-             rel="noopener noreferrer">Brug-open</a>
         </div>
       </div>
     </details>
@@ -408,7 +407,6 @@
       detail: document.getElementById('statusDetail'),
       warning: document.getElementById('warning'),
       notify: document.getElementById('notifyBtn'),
-      refresh: document.getElementById('refreshBtn'),
       liveText: document.getElementById('liveText'),
       lastSuccess: document.getElementById('lastSuccess'),
       lastChange: document.getElementById('lastChange'),
@@ -489,8 +487,6 @@
         : 'Krijg een melding wanneer de brug opent of sluit, ook als de app gesloten is.');
     }
     if (nativeApp) {
-      document.getElementById('notificationSettings').hidden = false;
-      document.getElementById('notificationSettingsBtn').addEventListener('click', () => Android.openNotificationSettings());
       if (typeof Android.getUpdateState === 'function') {
         document.getElementById('updateBtn').addEventListener('click', () => Android.downloadUpdate());
         document.getElementById('checkUpdateBtn').addEventListener('click', () => Android.checkForUpdate());
@@ -558,7 +554,9 @@
       return 'Nog ongeveer ' + minutes + (minutes === 1 ? ' minuut' : ' minuten') + ' open';
     }
 
+    let latestLocalData = null;
     function render(data) {
+      latestLocalData = data;
       if (data.status === 'OPEN' || data.status === 'DICHT') {
         const previous = lastSeenStatus;
         lastSeenStatus = data.status;
@@ -571,7 +569,7 @@
           els.sub.textContent = remaining || 'De brug is open';
           els.detail.textContent = remaining ? '' : 'Sluitingstijd onbekend';
         } else {
-          els.sub.textContent = 'De brug is dicht';
+          els.sub.textContent = '';
           els.detail.textContent = /langer dicht dan verwacht/i.test(data.live_text || '')
             ? '' : (data.detail || (data.live_text ? `Laatste opening: ${data.live_text}` : ''));
         }
@@ -622,7 +620,6 @@
       }
     }
 
-    els.refresh.addEventListener('click', fetchStatus);
 
     els.notify.addEventListener('click', async () => {
       if (nativeApp) {
@@ -648,6 +645,74 @@
         els.notify.textContent = 'Meldingen niet toegestaan';
       }
     });
+
+    const pullIndicator = document.getElementById('pullIndicator');
+    let pullStart = null;
+    let pullDistance = 0;
+    let pullBusy = false;
+    function showPull(distance, busy = false) {
+      pullIndicator.classList.toggle('visible', distance > 0 || busy);
+      pullIndicator.classList.toggle('busy', busy);
+      pullIndicator.setAttribute('aria-hidden', String(!(distance > 0 || busy)));
+      pullIndicator.style.transform = 'translate(-50%, ' + (Math.min(distance * .55, 52) - 56) + 'px)';
+      if (!busy) pullIndicator.firstElementChild.style.transform = 'rotate(' + distance * 3 + 'deg)';
+      else pullIndicator.firstElementChild.style.removeProperty('transform');
+    }
+    const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
+    async function refreshLocalAndUpdates() {
+      if (pullBusy) return;
+      pullBusy = true;
+      showPull(100, true);
+      try {
+        // Never call the backend or restart the Firestore listener from this gesture.
+        if (nativeApp) {
+          const raw = Android.getStatusJSON();
+          if (raw) render(JSON.parse(raw));
+          if (typeof Android.checkForUpdate === 'function') Android.checkForUpdate();
+        } else if (latestLocalData) {
+          render(latestLocalData);
+        }
+        await pause(600);
+        const deadline = Date.now() + 35000;
+        while (nativeApp && typeof Android.getUpdateState === 'function' && Date.now() < deadline) {
+          updateAppButton();
+          if (!JSON.parse(Android.getUpdateState()).busy) break;
+          await pause(200);
+        }
+      } catch {
+        // Keep the displayed bridge status if local data cannot be read.
+      } finally {
+        pullBusy = false;
+        showPull(0);
+      }
+    }
+    document.addEventListener('touchstart', event => {
+      pullStart = !pullBusy && window.scrollY <= 0 && event.touches.length === 1
+        ? { x: event.touches[0].clientX, y: event.touches[0].clientY } : null;
+      pullDistance = 0;
+    }, { passive: true });
+    document.addEventListener('touchmove', event => {
+      if (!pullStart || event.touches.length !== 1) return;
+      const dx = event.touches[0].clientX - pullStart.x;
+      const dy = event.touches[0].clientY - pullStart.y;
+      if (Math.abs(dx) > Math.abs(dy) || dy <= 0 || window.scrollY > 0) {
+        pullStart = null; pullDistance = 0; showPull(0); return;
+      }
+      if (event.cancelable) event.preventDefault();
+      pullDistance = Math.min(dy, 130);
+      showPull(pullDistance);
+    }, { passive: false });
+    document.addEventListener('touchend', () => {
+      if (!pullStart) return;
+      pullStart = null;
+      if (pullDistance >= 72) refreshLocalAndUpdates();
+      else showPull(0);
+      pullDistance = 0;
+    }, { passive: true });
+    document.addEventListener('touchcancel', () => {
+      pullStart = null; pullDistance = 0;
+      if (!pullBusy) showPull(0);
+    }, { passive: true });
 
     updateBrowserPushButton();
 
