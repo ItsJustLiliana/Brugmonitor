@@ -64,6 +64,14 @@ class PushOutbox:
             db.execute("UPDATE pending SET attempts=?,retry_at=? WHERE id=?", (attempts + 1, now + delay, event_id))
 
 
+def notification_body(status, detail):
+    """Keep the notification subtitle concise when the title already says the bridge is open."""
+    body = detail or ""
+    if status == "OPEN" and body.startswith("Nog ongeveer ") and body.endswith(" open"):
+        return body[:-5]
+    return body
+
+
 class FirebaseRelay:
     def __init__(self, data_dir, heartbeat=30, app=None, document=None, sender=None):
         # Dependencies can be injected for offline tests.
@@ -99,7 +107,7 @@ class FirebaseRelay:
         return messaging.Message(
             topic=TOPIC,
             data={"status": status, "event_id": payload["event_id"],
-                  "title": title, "body": payload.get("detail", ""),
+                  "title": title, "body": notification_body(status, payload.get("detail", "")),
                   "update": str(payload.get("update", False)).lower()},
             android=messaging.AndroidConfig(
                 priority="high", ttl=timedelta(seconds=max(1, ttl)), collapse_key="bridge-status",
