@@ -108,6 +108,7 @@ class FirebaseRelay:
             topic=TOPIC,
             data={"status": status, "event_id": payload["event_id"],
                   "title": title, "body": notification_body(status, payload.get("detail", "")),
+                  "detail": payload.get("detail", ""),
                   "update": str(payload.get("update", False)).lower()},
             android=messaging.AndroidConfig(
                 priority="high", ttl=timedelta(seconds=max(1, ttl)), collapse_key="bridge-status",

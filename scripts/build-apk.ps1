@@ -18,11 +18,26 @@ $env:JAVA_HOME = $javaRoot
 if ($BuildType -eq 'Release') {
     & (Join-Path $PSScriptRoot 'prepare-release-signing.ps1') -JavaRoot $javaRoot
 }
+# A JVM can fail to commit memory even when physical RAM is still available.
+# Check the system commit limit before starting the build, not just free RAM.
+try {
+    $memory = Get-CimInstance -ClassName Win32_PerfFormattedData_PerfOS_Memory -ErrorAction Stop
+} catch {
+    $memory = $null
+    Write-Warning 'Windows-geheugenruimte kon niet worden gecontroleerd.'
+}
+if ($null -ne $memory) {
+    $availableCommit = [double]$memory.CommitLimit - [double]$memory.CommittedBytes
+    if ($availableCommit -lt 2GB) {
+        $availableMiB = [math]::Floor($availableCommit / 1MB)
+        throw "Windows heeft nog maar $availableMiB MB toewijsbaar geheugen. Sluit zware programma's of herstart Windows en probeer opnieuw. Controleer bij herhaling of het wisselbestand op automatisch beheren staat en de schijf voldoende vrije ruimte heeft."
+    }
+}
 $variant = $BuildType.ToLowerInvariant()
 Set-Content -LiteralPath (Join-Path $repoRoot 'android\local.properties') -Value ('sdk.dir=' + $sdk.Replace('\', '/').Replace(':', '\:')) -Encoding ASCII
 Push-Location (Join-Path $repoRoot 'android')
 try {
-    & (Join-Path $javaRoot 'bin\java.exe') -classpath 'gradle\wrapper\gradle-wrapper.jar' org.gradle.wrapper.GradleWrapperMain --no-daemon "assemble$BuildType" "lint$BuildType"
+    & (Join-Path $javaRoot 'bin\java.exe') -Xms32m -Xmx64m -XX:+UseSerialGC -XX:ActiveProcessorCount=2 -classpath 'gradle\wrapper\gradle-wrapper.jar' org.gradle.wrapper.GradleWrapperMain --no-daemon "assemble$BuildType" "lint$BuildType"
     if ($LASTEXITCODE -ne 0) { throw 'Android build of lint mislukt.' }
     $dist = Join-Path $repoRoot 'dist'
     New-Item -ItemType Directory -Path $dist -Force | Out-Null

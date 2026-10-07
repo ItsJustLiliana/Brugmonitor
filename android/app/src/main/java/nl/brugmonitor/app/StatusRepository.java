@@ -31,6 +31,7 @@ final class StatusRepository {
                 latest = new JSONObject(snapshot.getData()).toString();
                 fromCache = snapshot.getMetadata().isFromCache();
                 failed = false;
+                BridgeWidgetProvider.save(context, latest);
             });
     }
 

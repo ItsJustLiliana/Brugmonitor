@@ -396,6 +396,32 @@
     .confirm-btn.danger { border-color: transparent; background: var(--red); color: #fff; }
     .confirm-btn:active { transform: translateY(1px); }
     [data-theme="dark"] .confirm-overlay { background: #02090db3; }
+
+    /* Small, consistent movements throughout the app. */
+    body, .topbar, details, .details-body, .update-panel, .confirm-dialog,
+    .secondary-btn, .link-btn, .theme-toggle, .notify-help, .connection {
+      transition: background-color 240ms ease, color 240ms ease, border-color 240ms ease, box-shadow 180ms ease;
+    }
+    .status-card { transition: background-color 350ms ease; }
+    button, summary { transition: transform 140ms ease, background-color 180ms ease, box-shadow 180ms ease; }
+    button:active { transform: scale(.98); }
+    .theme-toggle:active { transform: scale(.92); }
+    summary:active { background: var(--bg); }
+    summary::after { transition: transform 200ms ease; }
+    details[open] summary::after { transform: rotate(180deg); }
+    .location, .connection, .status-card, .notify-btn { animation: app-enter 320ms ease both; }
+    .connection { animation-delay: 30ms; }
+    .status-card { animation-delay: 60ms; }
+    .notify-btn { animation-delay: 90ms; }
+    .update-panel:not([hidden]), .warning { animation: app-enter 220ms ease; }
+    .confirm-overlay:not([hidden]) { animation: app-fade 180ms ease; }
+    .confirm-overlay:not([hidden]) .confirm-dialog { animation: app-enter 220ms ease; }
+    .pull-indicator { transition: opacity 160ms ease; }
+    @keyframes app-enter { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes app-fade { from { opacity: 0; } to { opacity: 1; } }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+    }
   </style>
 </head>
 <body>
@@ -523,6 +549,58 @@
       lastChange: document.getElementById('lastChange'),
       history: document.getElementById('historyBody'),
     };
+
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const textAnimations = new WeakMap();
+    function updateAnimatedText(element, text) {
+      if (element.textContent === text) return;
+      const current = textAnimations.get(element);
+      if (current) current.cancel();
+      element.textContent = text;
+      if (!text || reducedMotion.matches || typeof element.animate !== 'function') return;
+      const animation = element.animate([
+        { opacity: .35, transform: 'translateY(3px)' },
+        { opacity: 1, transform: 'translateY(0)' }
+      ], { duration: 220, easing: 'ease-out' });
+      textAnimations.set(element, animation);
+    }
+
+    // Animate the actual details height, keeping its native keyboard interaction.
+    const detailsPanel = document.querySelector('details');
+    const summaryButton = detailsPanel.querySelector('summary');
+    let detailsAnimation = null;
+    let detailsTarget = detailsPanel.open;
+    summaryButton.addEventListener('click', event => {
+      if (reducedMotion.matches || typeof detailsPanel.animate !== 'function') return;
+      event.preventDefault();
+      const from = detailsPanel.getBoundingClientRect().height;
+      if (detailsAnimation) detailsAnimation.cancel();
+      detailsTarget = !detailsTarget;
+      detailsPanel.open = true;
+      const expanded = detailsPanel.getBoundingClientRect().height;
+      const collapsed = summaryButton.getBoundingClientRect().height + 2;
+      const animation = detailsPanel.animate([
+        { height: from + 'px' }, { height: (detailsTarget ? expanded : collapsed) + 'px' }
+      ], { duration: 240, easing: 'ease-in-out', fill: 'both' });
+      detailsAnimation = animation;
+      animation.onfinish = () => {
+        if (detailsAnimation !== animation) return;
+        detailsPanel.open = detailsTarget;
+        animation.cancel();
+        detailsAnimation = null;
+      };
+    });
+    detailsPanel.addEventListener('toggle', () => {
+      if (!detailsAnimation) detailsTarget = detailsPanel.open;
+    });
+    reducedMotion.addEventListener('change', event => {
+      if (!event.matches) return;
+      if (detailsAnimation) {
+        detailsAnimation.cancel(); detailsAnimation = null;
+        detailsPanel.open = detailsTarget;
+      }
+      for (const element of [els.main, els.sub, els.detail]) textAnimations.get(element)?.cancel();
+    });
 
     let lastSeenStatus = null;
     let hasInitialStatus = false;
@@ -689,16 +767,16 @@
         lastSeenStatus = data.status;
 
         els.card.className = 'status-card ' + (data.status === 'OPEN' ? 'open' : 'closed');
-        els.main.textContent = data.status;
+        updateAnimatedText(els.main, data.status);
 
         if (data.status === 'OPEN') {
           const remaining = remainingText(data);
-          els.sub.textContent = remaining;
-          els.detail.textContent = remaining ? '' : openDetail(data);
+          updateAnimatedText(els.sub, remaining);
+          updateAnimatedText(els.detail, remaining ? '' : openDetail(data));
         } else {
-          els.sub.textContent = '';
-          els.detail.textContent = /langer dicht dan verwacht/i.test(data.live_text || '')
-            ? '' : (data.detail || (data.live_text ? `Laatste opening: ${data.live_text}` : ''));
+          updateAnimatedText(els.sub, '');
+          updateAnimatedText(els.detail, /langer dicht dan verwacht/i.test(data.live_text || '')
+            ? '' : (data.detail || (data.live_text ? `Laatste opening: ${data.live_text}` : '')));
         }
 
         if (hasInitialStatus && previous && previous !== data.status) {

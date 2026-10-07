@@ -6,6 +6,9 @@ import com.google.firebase.messaging.RemoteMessage;
 public class BridgeMessagingService extends FirebaseMessagingService {
     @Override public void onMessageReceived(RemoteMessage message) {
         RemoteMessage.Notification notification = message.getNotification();
+        BridgeWidgetProvider.receivePush(this, message.getData(), message.getSentTime());
+        sendBroadcast(new android.content.Intent(this, BridgeWidgetProvider.class)
+            .setAction("nl.brugmonitor.app.WIDGET_REFRESH"));
         if (message.getData().containsKey("status")) {
             NotificationSupport.showStatus(this, message.getData().getOrDefault("title", notification != null ? notification.getTitle() : "Brugmonitor"),
                 message.getData().getOrDefault("body", notification != null ? notification.getBody() : ""),

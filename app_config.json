@@ -1,5 +1,5 @@
 {
-  "version": "0.4.6",
+  "version": "0.4.7",
   "androidApplicationId": "nl.brugmonitor.app",
   "updateFeedUrl": "https://liliananuzohra.com/api/brugmonitor-release.php",
   "updatePageUrl": "https://liliananuzohra.com/projects?project=brugmonitor"

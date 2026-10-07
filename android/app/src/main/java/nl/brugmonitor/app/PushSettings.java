@@ -34,21 +34,53 @@ final class PushSettings {
         messaging.setAutoInitEnabled(true);
         messaging.subscribeToTopic(TOPIC).addOnCompleteListener(task -> {
             busy = false;
-            prefs(app).edit().putBoolean("push_subscribed", task.isSuccessful()).apply();
+            prefs(app).edit().putBoolean("push_subscribed", task.isSuccessful()).putBoolean("widget_topic_subscribed", task.isSuccessful()).apply();
             if (!task.isSuccessful()) error = "Meldingen activeren mislukt. Controleer internet en probeer opnieuw.";
+        });
+    }
+
+    private static boolean widgetSyncBusy = false;
+    static synchronized void syncWidgetSubscription(Context c) {
+        Context app = c.getApplicationContext();
+        if (!configured(app) || widgetSyncBusy || busy) return;
+        boolean needed = BridgeWidgetProvider.hasWidgets(app) || wanted(app);
+        if (needed && prefs(app).getBoolean("widget_topic_subscribed", false)) return;
+        if (!needed && !prefs(app).getBoolean("widget_topic_subscribed", false)) return;
+        widgetSyncBusy = true;
+        FirebaseMessaging messaging = FirebaseMessaging.getInstance();
+        if (needed) messaging.setAutoInitEnabled(true);
+        com.google.android.gms.tasks.Task<Void> task = needed
+            ? messaging.subscribeToTopic(TOPIC) : messaging.unsubscribeFromTopic(TOPIC);
+        task.addOnCompleteListener(result -> {
+            widgetSyncBusy = false;
+            if (result.isSuccessful()) {
+                prefs(app).edit().putBoolean("widget_topic_subscribed", needed).apply();
+                if (!needed && !wanted(app) && !BridgeWidgetProvider.hasWidgets(app)) messaging.setAutoInitEnabled(false);
+                if (needed != (BridgeWidgetProvider.hasWidgets(app) || wanted(app))) {
+                    syncWidgetSubscription(app);
+                }
+            } else android.util.Log.w("Brugmonitor", "Widget-pushabonnement mislukt", result.getException());
         });
     }
 
     static synchronized void disable(Context c) {
         Context app = c.getApplicationContext();
         if (!configured(app) || busy) return;
+        if (BridgeWidgetProvider.hasWidgets(app)) {
+            prefs(app).edit().putBoolean("push_wanted", false).putBoolean("push_subscribed", false).apply();
+            NotificationSupport.cancel(app);
+            error = "";
+            syncWidgetSubscription(app);
+            return;
+        }
         error = ""; busy = true;
         FirebaseMessaging messaging = FirebaseMessaging.getInstance();
         messaging.unsubscribeFromTopic(TOPIC).addOnCompleteListener(task -> {
             busy = false;
             if (task.isSuccessful()) {
-                prefs(app).edit().putBoolean("push_wanted", false).putBoolean("push_subscribed", false).apply();
-                messaging.setAutoInitEnabled(false);
+                prefs(app).edit().putBoolean("push_wanted", false).putBoolean("push_subscribed", false).putBoolean("widget_topic_subscribed", false).apply();
+                if (!BridgeWidgetProvider.hasWidgets(app)) messaging.setAutoInitEnabled(false);
+                syncWidgetSubscription(app);
                 NotificationSupport.cancel(app);
             } else error = "Uitschakelen mislukt. Controleer internet en probeer opnieuw.";
         });
@@ -56,14 +88,14 @@ final class PushSettings {
 
     static void sync(Context c) {
         Context app = c.getApplicationContext();
+        syncWidgetSubscription(app);
         if (wanted(app) && configured(app) && NotificationSupport.allowed(app)
             && !prefs(app).getBoolean("push_subscribed", false)) enable(app);
     }
 
     static void tokenChanged(Context c) {
         Context app = c.getApplicationContext();
-        if (!wanted(app)) return;
-        prefs(app).edit().putBoolean("push_subscribed", false).apply();
+        prefs(app).edit().putBoolean("widget_topic_subscribed", false).putBoolean("push_subscribed", false).apply();
         sync(app);
     }
 

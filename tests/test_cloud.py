@@ -87,6 +87,12 @@ class CloudTests(unittest.TestCase):
         self.assertEqual(message.android.ttl.total_seconds(), 60)
         self.assertEqual(message.data["event_id"], "event-1")
 
+    def test_widget_receives_full_timing_independently_of_notification_shortening(self):
+        message = self.relay.message({"event_id": "widget-1", "status": "OPEN", "detail": "Nog ongeveer 5 minuten open"}, 60)
+        self.assertEqual(message.data["body"], "Nog ongeveer 5 minuten")
+        self.assertEqual(message.data["detail"], "Nog ongeveer 5 minuten open")
+        self.assertIsNone(message.notification)
+
     def test_restart_waits_for_fresh_baseline_and_discards_wrong_old_status(self):
         self.relay.outbox.enqueue("OPEN", "", now=100)
         self.assertFalse(self.relay.process_pending(now=101))
