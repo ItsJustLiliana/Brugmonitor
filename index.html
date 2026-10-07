@@ -5,6 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#3f9ebc">
   <title>Sas van Gent brug</title>
+  <script>
+    (() => {
+      let saved = null;
+      try { saved = localStorage.getItem('brugmonitor_theme'); } catch {}
+      const dark = saved === 'dark' || (saved !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+    })();
+  </script>
   <style>
     :root {
       --blue: #3f9ebc;
@@ -321,11 +329,38 @@
     .pull-spinner { width: 20px; height: 20px; border: 2px solid #dcebee; border-top-color: var(--blue); border-radius: 50%; }
     .pull-indicator.busy .pull-spinner { animation: pull-spin .7s linear infinite; }
     @keyframes pull-spin { to { transform: rotate(360deg); } }
+
+    :root { color-scheme: light; --glow: #dcebee; }
+    :root[data-theme="dark"] {
+      color-scheme: dark;
+      --bg: #101c22; --glow: #193039; --card: #1b2b33;
+      --text: #e6f0f3; --muted: #a9bec6; --border: #344a54;
+      --warning-bg: #3c321a; --warning-text: #f0d889;
+    }
+    body { background: radial-gradient(ellipse at top, var(--glow), var(--bg) 65%); }
+    .topbar { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; gap: 8px; background: var(--card); border-color: var(--border); }
+    .topbar::before { content: ''; }
+    .brand { display: flex; align-items: center; justify-content: center; white-space: nowrap; }
+    .theme-toggle { width: 44px; height: 44px; padding: 10px; display: inline-flex; align-items: center; justify-content: center; color: var(--text); background: transparent; border: 1px solid var(--border); border-radius: 12px; cursor: pointer; }
+    .theme-toggle:hover { background: var(--bg); }
+    .theme-toggle svg { width: 22px; height: 22px; }
+    .theme-sun { display: none; }
+    [data-theme="dark"] .theme-sun { display: block; }
+    [data-theme="dark"] .theme-moon { display: none; }
+    .secondary-btn, .link-btn, .pull-indicator { background: var(--card); }
+    .detail-row, th, td { border-color: var(--border); }
+    th { background: var(--bg); }
+    .pull-spinner { border-color: var(--border); border-top-color: var(--blue); }
   </style>
 </head>
 <body>
   <div id="pullLayer" class="pull-layer"><div id="pullIndicator" class="pull-indicator" role="status" aria-label="Verversen" aria-hidden="true"><span class="pull-spinner" aria-hidden="true"></span></div></div>
-  <header class="topbar"><span class="brand-icon" aria-hidden="true"><svg width="22" height="20" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 34h38M11 10v29M37 10v29M11 12Q24 32 37 12M18 23v11M24 26v8M30 23v11"/></svg></span> Brugmonitor</header>
+  <header class="topbar"><span class="brand"><span class="brand-icon" aria-hidden="true"><svg width="22" height="20" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 34h38M11 10v29M37 10v29M11 12Q24 32 37 12M18 23v11M24 26v8M30 23v11"/></svg></span> Brugmonitor</span>
+    <button id="themeToggle" class="theme-toggle" type="button" aria-label="Donkere modus inschakelen" title="Donkere modus inschakelen" aria-pressed="false">
+      <svg class="theme-moon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 13.2A9 9 0 0 1 10.8 3.2 9 9 0 1 0 20.8 13.2Z"/></svg>
+      <svg class="theme-sun" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.4 1.4m11.2 11.2L19 19M5 19l1.4-1.4M17.6 6.4 19 5"/></svg>
+    </button>
+  </header>
 
   <main class="page">
     <section class="location">
@@ -401,6 +436,30 @@
   </main>
 
   <script>
+    const themeToggle = document.getElementById('themeToggle');
+    const systemTheme = window.matchMedia('(prefers-color-scheme: dark)');
+    let themeChosen = false;
+    try { themeChosen = ['dark', 'light'].includes(localStorage.getItem('brugmonitor_theme')); } catch {}
+    function applyTheme(theme) {
+      document.documentElement.dataset.theme = theme;
+      const dark = theme === 'dark';
+      const label = dark ? 'Lichte modus inschakelen' : 'Donkere modus inschakelen';
+      themeToggle.setAttribute('aria-label', label);
+      themeToggle.setAttribute('aria-pressed', String(dark));
+      themeToggle.title = label;
+      document.querySelector('meta[name="theme-color"]').content = dark ? '#1b2b33' : '#ffffff';
+    }
+    applyTheme(document.documentElement.dataset.theme);
+    themeToggle.addEventListener('click', () => {
+      const theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+      themeChosen = true;
+      applyTheme(theme);
+      try { localStorage.setItem('brugmonitor_theme', theme); } catch {}
+    });
+    const followSystemTheme = event => { if (!themeChosen) applyTheme(event.matches ? 'dark' : 'light'); };
+    if (systemTheme.addEventListener) systemTheme.addEventListener('change', followSystemTheme);
+    else systemTheme.addListener(followSystemTheme);
+
     const els = {
       card: document.getElementById('statusCard'),
       main: document.getElementById('statusMain'),
