@@ -12,16 +12,36 @@ try {
 if (!(appConfig instanceof Map) || !(appConfig.version instanceof String) || !(appConfig.version ==~ /[0-9]+[.][0-9]+[.][0-9]+/)) {
     throw new GradleException('Gebruik in app_config.json een version zoals 0.3.2.')
 }
-if (!(appConfig.buildNumber instanceof Integer || appConfig.buildNumber instanceof Long) || appConfig.buildNumber <= 0 || appConfig.buildNumber > 2100000000) {
-    throw new GradleException('buildNumber in app_config.json moet een positief geheel getal zijn, maximaal 2100000000.')
-}
 if (appConfig.androidApplicationId != 'nl.brugmonitor.app') {
     throw new GradleException('androidApplicationId moet nl.brugmonitor.app blijven voor bestaande installaties en Firebase.')
 }
 if (!(appConfig.updateFeedUrl instanceof String) || !appConfig.updateFeedUrl.startsWith('https://')) {
     throw new GradleException('updateFeedUrl in app_config.json moet een HTTPS-adres zijn.')
 }
-int configuredVersionCode = appConfig.buildNumber.intValue()
+// Seconds since 2020 keep codes increasing even on a fresh checkout.
+// The locked local counter also handles rapid builds or a clock moving backwards.
+def versionCounterFile = rootProject.file('.gradle/brugmonitor-version-code.txt')
+versionCounterFile.parentFile.mkdirs()
+int configuredVersionCode
+new RandomAccessFile(versionCounterFile, 'rw').withCloseable { counter ->
+    def counterLock = counter.channel.lock()
+    try {
+        String previousText = counter.readLine()
+        long previousCode = previousText ? Long.parseLong(previousText.trim()) : 107L
+        long timestampCode = java.time.Instant.now().epochSecond - 1577836800L
+        long nextCode = Math.max(timestampCode, previousCode + 1L)
+        if (nextCode <= 0L || nextCode > 2100000000L) {
+            throw new GradleException('Automatisch Android-buildnummer valt buiten het toegestane bereik.')
+        }
+        configuredVersionCode = (int) nextCode
+        counter.setLength(0L)
+        counter.seek(0L)
+        counter.writeBytes(Long.toString(nextCode))
+    } finally {
+        counterLock.release()
+    }
+}
+logger.lifecycle("Brugmonitor ${appConfig.version}, automatisch buildnummer ${configuredVersionCode}")
 String configuredVersionName = appConfig.version
 def firebaseConfigured = file('google-services.json').exists()
 if (firebaseConfigured) { apply plugin: 'com.google.gms.google-services' }

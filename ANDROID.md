@@ -7,7 +7,7 @@ De app krijgt de brugstatus via Firestore en meldingen via Firebase Cloud Messag
 3. Installeer **dist/Brugmonitor-debug.apk** over je bestaande app.
 4. Schakel meldingen in en geef Android toestemming.
 
-Pas de versie op een plek aan: **app_config.json** (version en buildNumber). Verhoog buildNumber bij iedere release. Publiceren op liliananuzohra.com en de automatische serverworkflow staan in **AUTOMATION.md**. De APK bouw je zelf.
+Pas de versie op een plek aan: **app_config.json** (alleen version). Het buildnummer wordt automatisch bepaald tijdens de Android-build. Publiceren op liliananuzohra.com en de automatische serverworkflow staan in **AUTOMATION.md**. De APK bouw je zelf.
 
 De app toont updates boven de Details-dropdown, downloadt de APK en opent de Android-installer na controle. Gebruik dezelfde ondertekeningssleutel voor iedere build.
 
@@ -15,6 +15,6 @@ Meldingen verschijnen niet bovenaan? Open **Details → Meldingen op scherm inst
 
 Firebase-afspraken: topic brugmonitor-sas-van-gent-v1, document bridges/sas-van-gent, kanaal bridge_status. De Firebase-serverkey hoort alleen op de server. De app vraagt op Android 13+ meldingstoestemming. Dit is een debugbuild voor eigen gebruik, minimaal Android 8.
 
-Voor een nieuwe APK wijzig je alleen version en buildNumber in app_config.json. Huidig: 0.3.3 en 107. Volgende bijvoorbeeld: 0.3.4 en 108. build.gradle leest dit automatisch en controleert de invoer. Het Android-appicoon gebruikt hetzelfde blauwe bruglogo als de app, inclusief ronde en thematische launchericonen.
+Voor een nieuwe appversie wijzig je alleen version in app_config.json, bijvoorbeeld van 0.3.3 naar 0.3.4. Elke build krijgt automatisch een hoger buildnummer op basis van de tijd, ook als de versienaam gelijk blijft. Een lokale teller in android/.gradle voorkomt dubbele nummers bij snel opeenvolgende builds; deze gaat niet naar Git. build.gradle leest dit automatisch en controleert de invoer. Het Android-appicoon gebruikt hetzelfde blauwe bruglogo als de app, inclusief ronde en thematische launchericonen.
 
 Meldingen kun je onder de statuskaart inschakelen en uitschakelen; de knop blijft zichtbaar wanneer meldingen actief zijn.
