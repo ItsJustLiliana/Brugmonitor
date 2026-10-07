@@ -16,6 +16,7 @@ final class StatusRepository {
 
     void start() {
         if (listener != null || !PushSettings.configured(context)) return;
+        failed = false;
         listener = FirebaseFirestore.getInstance().document("bridges/sas-van-gent")
             .addSnapshotListener(MetadataChanges.INCLUDE, (snapshot, error) -> {
                 if (error != null) {

@@ -17,7 +17,7 @@ public class BridgeMessagingService extends FirebaseMessagingService {
                 message.getData().getOrDefault("event_id", ""));
         }
     }
-    @Override public void onNewToken(String token) { PushSettings.sync(this); }
+    @Override public void onNewToken(String token) { PushSettings.tokenChanged(this); }
     // Newer FCM versions also report installation-ID rotation through this callback.
-    public void onRegistered(String installationId) { PushSettings.sync(this); }
+    public void onRegistered(String installationId) { PushSettings.tokenChanged(this); }
 }

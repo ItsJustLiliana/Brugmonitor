@@ -306,10 +306,8 @@ def monitor_loop():
         except Exception:
             __import__("logging").getLogger(__name__).exception("Cloud-publicatie tijdelijk niet beschikbaar")
 
-        for _ in range(CHECK_INTERVAL * 10):
-            if stop_event.is_set():
-                break
-            time.sleep(0.1)
+        # Sleep efficiently while still allowing shutdown to interrupt immediately.
+        stop_event.wait(CHECK_INTERVAL)
 
 
 @app.get("/")
