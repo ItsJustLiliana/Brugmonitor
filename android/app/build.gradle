@@ -8,7 +8,7 @@ android {
         applicationId 'nl.brugmonitor.app'
         minSdk 26
         targetSdk 36
-        versionCode 3
+        versionCode System.getenv('BRUGMONITOR_VERSION_CODE') ? 100 + Integer.parseInt(System.getenv('BRUGMONITOR_VERSION_CODE')) : 3
         versionName '0.2.1'
         buildConfigField 'boolean', 'FIREBASE_CONFIGURED', firebaseConfigured.toString()
     }

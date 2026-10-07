@@ -2,7 +2,7 @@
 
 Live status van de Sas van Gent brug, met een Android-app en Firebase-pushmeldingen.
 
-De Arch Linux-server leest Brug-open met headless Chromium en publiceert de status naar Firestore. De Android-app leest Firestore rechtstreeks. Bij OPEN ↔ DICHT verstuurt de server een melding via Firebase Cloud Messaging. Er is geen domein of inkomende serverpoort nodig.
+De Arch Linux-server leest Brug-open met headless Chromium en publiceert de status naar Firestore. De Android-app leest Firestore rechtstreeks. Bij OPEN â†” DICHT verstuurt de server een melding via Firebase Cloud Messaging. Er is geen domein of inkomende serverpoort nodig.
 
 ## Installatie
 
@@ -37,3 +37,5 @@ python scripts/package-server.py
 ```
 
 De pakketten verschijnen in dist/ en worden niet gecommit. De APK is momenteel een debugbuild voor eigen testen.
+
+Automatische APK-builds en servertests: zie [AUTOMATION.md](AUTOMATION.md).
