@@ -354,6 +354,48 @@
     .pull-spinner { border-color: var(--border); border-top-color: var(--blue); }
     [data-theme="dark"] .pull-indicator { border-color: #526b76; box-shadow: 0 4px 18px #00000066; }
     [data-theme="dark"] .pull-spinner { border-color: #526b76; border-top-color: #63c7e4; }
+
+    /* Keep the page background visually fixed when Details changes document height. */
+    html { background: var(--bg); }
+    body { background-attachment: fixed; background-repeat: no-repeat; }
+
+    .confirm-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: #07151b80;
+      backdrop-filter: blur(3px);
+      -webkit-backdrop-filter: blur(3px);
+    }
+    .confirm-dialog {
+      width: min(100%, 380px);
+      padding: 20px;
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: var(--card);
+      color: var(--text);
+      box-shadow: 0 18px 52px #07151b4d;
+    }
+    .confirm-dialog h2 { margin: 0 0 8px; font-size: 19px; }
+    .confirm-dialog p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
+    .confirm-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 18px; }
+    .confirm-btn {
+      min-height: 46px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--text);
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .confirm-btn.danger { border-color: transparent; background: var(--red); color: #fff; }
+    .confirm-btn:active { transform: translateY(1px); }
+    [data-theme="dark"] .confirm-overlay { background: #02090db3; }
   </style>
 </head>
 <body>
@@ -371,7 +413,7 @@
       <p>Kanaal Gent–Terneuzen</p>
     </section>
 
-    <div class="connection"><span id="connectionText" role="status">Verbinding maken…</span></div>
+    <div class="connection"><span id="connectionText" role="status">Laden…</span></div>
     <section id="statusCard" class="status-card loading" aria-live="polite">
       <div class="status-label">BRUGSTATUS</div>
       <div id="statusMain" class="status-main">LADEN</div>
@@ -394,11 +436,6 @@
     <details>
       <summary>Details</summary>
       <div class="details-body">
-
-        <div class="detail-row">
-          <div class="detail-label">Live tekst Brug-open</div>
-          <div id="liveText" class="detail-value">—</div>
-        </div>
 
         <div class="detail-row">
           <div class="detail-label">Laatste succesvolle controle</div>
@@ -438,6 +475,17 @@
     </div>
   </main>
 
+  <div id="disableNotificationsConfirm" class="confirm-overlay" hidden>
+    <section class="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="disableNotificationsTitle" aria-describedby="disableNotificationsText">
+      <h2 id="disableNotificationsTitle">Meldingen uitschakelen?</h2>
+      <p id="disableNotificationsText">Je ontvangt dan geen melding meer wanneer de brug opent of sluit.</p>
+      <div class="confirm-actions">
+        <button id="cancelDisableNotifications" class="confirm-btn" type="button">Annuleren</button>
+        <button id="confirmDisableNotifications" class="confirm-btn danger" type="button">Uitschakelen</button>
+      </div>
+    </section>
+  </div>
+
   <script>
     const themeToggle = document.getElementById('themeToggle');
     const systemTheme = window.matchMedia('(prefers-color-scheme: dark)');
@@ -471,7 +519,6 @@
       detail: document.getElementById('statusDetail'),
       warning: document.getElementById('warning'),
       notify: document.getElementById('notifyBtn'),
-      liveText: document.getElementById('liveText'),
       lastSuccess: document.getElementById('lastSuccess'),
       lastChange: document.getElementById('lastChange'),
       history: document.getElementById('historyBody'),
@@ -480,6 +527,9 @@
     let lastSeenStatus = null;
     let hasInitialStatus = false;
     let refreshing = false;
+    const startupStartedAt = Date.now();
+    const startupGraceMs = 8000;
+    let pendingNotificationTarget = null;
     const nativeApp = typeof Android !== 'undefined';
     if (nativeApp) document.documentElement.classList.add('native-app');
 
@@ -537,11 +587,15 @@
     function updatePushButton() {
       if (!nativeApp) return;
       const state = JSON.parse(Android.getPushState());
+      if (pendingNotificationTarget === false && !state.busy && !state.enabled && !state.wanted) {
+        pendingNotificationTarget = null;
+      }
+      const pending = state.busy || pendingNotificationTarget !== null;
       els.notify.hidden = false;
       document.getElementById('notifyHelp').hidden = !!state.enabled;
-      els.notify.disabled = !state.configured || state.busy;
+      els.notify.disabled = !state.configured || pending;
       els.notify.textContent = !state.configured ? 'Firebase nog niet ingesteld'
-        : state.busy ? 'Meldingen bijwerken…'
+        : pending ? '...'
         : state.enabled ? 'Meldingen uitschakelen'
         : state.wanted ? 'Meldingen opnieuw inschakelen' : 'Meldingen inschakelen';
       document.getElementById('notifyHelp').textContent = state.error || (!state.configured
@@ -660,7 +714,6 @@
       els.warning.style.display = data.stale ? 'block' : 'none';
       connection.className = 'connection ' + (data.stale ? 'stale' : data.status ? 'live' : '');
       connectionText.textContent = data.stale ? 'Status niet recent bevestigd' : data.status_from_cache ? 'Lokaal opgeslagen status' : data.status ? 'Live verbonden' : 'Status ophalen...';
-      els.liveText.textContent = data.status === 'OPEN' ? (remainingText(data) || openDetail(data)) : (data.live_text || '—');
       els.lastSuccess.textContent = formatDate(data.last_success);
       els.lastChange.textContent = formatDate(data.last_change);
       renderHistory(data.history);
@@ -681,14 +734,25 @@
           render(await res.json());
         }
       } catch {
-        els.warning.style.display = 'block';
-        connection.className = 'connection stale';
-        connectionText.textContent = 'Geen verbinding';
-        if (!hasInitialStatus) {
-          els.main.textContent = 'WACHTEN';
-          els.sub.textContent = 'Geen live status beschikbaar';
-          els.detail.textContent = nativeApp ? (Android.isFirebaseConfigured() ? 'Wachten op live gegevens. Controleer de internetverbinding.' : 'Installeer de app met jouw Firebase-configuratie.') : 'Controleer of de monitor actief is.';
-          els.warning.textContent = 'De live status kon niet worden opgehaald. Er is nog geen laatst bekende status.';
+        const startingNativeApp = nativeApp && !hasInitialStatus && Date.now() - startupStartedAt < startupGraceMs;
+        if (startingNativeApp) {
+          els.warning.style.display = 'none';
+          connection.className = 'connection';
+          connectionText.textContent = 'Laden…';
+          els.card.className = 'status-card loading';
+          els.main.textContent = 'LADEN';
+          els.sub.textContent = 'Status ophalen…';
+          els.detail.textContent = '';
+        } else {
+          els.warning.style.display = 'block';
+          connection.className = 'connection stale';
+          connectionText.textContent = 'Geen verbinding';
+          if (!hasInitialStatus) {
+            els.main.textContent = 'WACHTEN';
+            els.sub.textContent = 'Geen live status beschikbaar';
+            els.detail.textContent = nativeApp ? (Android.isFirebaseConfigured() ? 'Wachten op live gegevens. Controleer de internetverbinding.' : 'Installeer de app met jouw Firebase-configuratie.') : 'Controleer of de monitor actief is.';
+            els.warning.textContent = 'De live status kon niet worden opgehaald. Er is nog geen laatst bekende status.';
+          }
         }
       } finally {
         refreshing = false;
@@ -696,7 +760,51 @@
     }
 
 
+    const disableConfirm = document.getElementById('disableNotificationsConfirm');
+    const cancelDisableNotifications = document.getElementById('cancelDisableNotifications');
+    const confirmDisableNotifications = document.getElementById('confirmDisableNotifications');
+
+    function showDisableConfirmation() {
+      disableConfirm.hidden = false;
+      confirmDisableNotifications.focus();
+    }
+    function hideDisableConfirmation() {
+      disableConfirm.hidden = true;
+      els.notify.focus();
+    }
+    function notificationsCurrentlyEnabled() {
+      if (nativeApp) {
+        try { return !!JSON.parse(Android.getPushState()).enabled; } catch { return false; }
+      }
+      return 'Notification' in window && Notification.permission === 'granted' && browserNotificationsWanted;
+    }
+
+    cancelDisableNotifications.addEventListener('click', hideDisableConfirmation);
+    disableConfirm.addEventListener('click', event => {
+      if (event.target === disableConfirm) hideDisableConfirmation();
+    });
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && !disableConfirm.hidden) hideDisableConfirmation();
+    });
+    confirmDisableNotifications.addEventListener('click', () => {
+      disableConfirm.hidden = true;
+      els.notify.disabled = true;
+      els.notify.textContent = '...';
+      if (nativeApp) {
+        pendingNotificationTarget = false;
+        Android.toggleNotifications();
+        window.setTimeout(updatePushButton, 100);
+      } else {
+        saveBrowserNotifications(false);
+      }
+    });
+
     els.notify.addEventListener('click', async () => {
+      if (notificationsCurrentlyEnabled()) {
+        showDisableConfirmation();
+        return;
+      }
+
       if (nativeApp) {
         Android.toggleNotifications();
         updatePushButton();
@@ -708,10 +816,6 @@
         return;
       }
 
-      if (Notification.permission === 'granted' && browserNotificationsWanted) {
-        saveBrowserNotifications(false);
-        return;
-      }
       const permission = await Notification.requestPermission();
 
       if (permission === 'granted') {
