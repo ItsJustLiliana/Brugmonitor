@@ -416,6 +416,20 @@
     let hasInitialStatus = false;
     let refreshing = false;
     const nativeApp = typeof Android !== 'undefined';
+    let browserNotificationsWanted = true;
+    try { browserNotificationsWanted = localStorage.getItem('brugmonitor_notifications') !== 'off'; } catch {}
+    function updateBrowserPushButton() {
+      if (nativeApp) return;
+      const enabled = 'Notification' in window && Notification.permission === 'granted' && browserNotificationsWanted;
+      els.notify.hidden = false;
+      els.notify.textContent = enabled ? 'Meldingen uitschakelen' : 'Meldingen inschakelen';
+      document.getElementById('notifyHelp').hidden = enabled;
+    }
+    function saveBrowserNotifications(wanted) {
+      browserNotificationsWanted = wanted;
+      try { localStorage.setItem('brugmonitor_notifications', wanted ? 'on' : 'off'); } catch {}
+      updateBrowserPushButton();
+    }
     const connection = document.querySelector('.connection');
     const connectionText = document.getElementById('connectionText');
     function updateAppButton() {
@@ -433,11 +447,12 @@
     function updatePushButton() {
       if (!nativeApp) return;
       const state = JSON.parse(Android.getPushState());
-      els.notify.hidden = !!state.enabled;
+      els.notify.hidden = false;
       document.getElementById('notifyHelp').hidden = !!state.enabled;
       els.notify.disabled = !state.configured || state.busy;
       els.notify.textContent = !state.configured ? 'Firebase nog niet ingesteld'
         : state.busy ? 'Meldingen bijwerken…'
+        : state.enabled ? 'Meldingen uitschakelen'
         : state.wanted ? 'Meldingen opnieuw inschakelen' : 'Meldingen inschakelen';
       document.getElementById('notifyHelp').textContent = state.error || (!state.configured
         ? 'Installeer de appversie met jouw Firebase-configuratie.'
@@ -492,7 +507,7 @@
     }
 
     function showNotification(status, data) {
-      if (nativeApp) return;
+      if (nativeApp || !browserNotificationsWanted) return;
       if (!('Notification' in window)) return;
       if (Notification.permission !== 'granted') return;
 
@@ -593,20 +608,20 @@
         return;
       }
 
+      if (Notification.permission === 'granted' && browserNotificationsWanted) {
+        saveBrowserNotifications(false);
+        return;
+      }
       const permission = await Notification.requestPermission();
 
       if (permission === 'granted') {
-        els.notify.hidden = true;
-        document.getElementById('notifyHelp').hidden = true;
+        saveBrowserNotifications(true);
       } else {
         els.notify.textContent = 'Meldingen niet toegestaan';
       }
     });
 
-    if (!nativeApp && 'Notification' in window && Notification.permission === 'granted') {
-      els.notify.hidden = true;
-      document.getElementById('notifyHelp').hidden = true;
-    }
+    updateBrowserPushButton();
 
     fetchStatus();
     setInterval(fetchStatus, 3000);
