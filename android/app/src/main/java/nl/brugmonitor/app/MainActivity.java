@@ -13,13 +13,16 @@ import android.widget.Toast;
 public class MainActivity extends Activity {
     private WebView web;
     private StatusRepository status;
+    private AppUpdater updater;
 
     // Only trusted bundled HTML runs in the WebView. Links always open externally.
     @android.annotation.SuppressLint("SetJavaScriptEnabled")
     @Override public void onCreate(Bundle saved) {
         super.onCreate(saved);
         NotificationSupport.createChannel(this);
+        NotificationSupport.clearLegacy(this);
         status = new StatusRepository(this);
+        updater = new AppUpdater(this);
         web = new WebView(this);
         // WebView content ignores its own padding on some devices; inset the container instead.
         android.widget.FrameLayout content = new android.widget.FrameLayout(this);
@@ -92,6 +95,9 @@ public class MainActivity extends Activity {
     }
 
     public class Bridge {
+        @JavascriptInterface public String getUpdateState() { return updater.json(); }
+        @JavascriptInterface public void checkForUpdate() { updater.check(true); }
+        @JavascriptInterface public void downloadUpdate() { updater.download(); }
         @JavascriptInterface public boolean isFirebaseConfigured() { return PushSettings.configured(MainActivity.this); }
         @JavascriptInterface public String getStatusJSON() { return status.json(); }
         @JavascriptInterface public String getPushState() { return PushSettings.json(MainActivity.this); }
@@ -111,6 +117,7 @@ public class MainActivity extends Activity {
         if (web != null) web.onResume();
         if (status != null) status.start();
         PushSettings.sync(this);
+        if (updater != null) updater.resume();
     }
     @Override protected void onPause() {
         if (status != null) status.stop();
@@ -119,6 +126,7 @@ public class MainActivity extends Activity {
     }
     @Override protected void onDestroy() {
         if (status != null) status.stop();
+        if (updater != null) updater.close();
         if (web != null) { web.removeJavascriptInterface("Android"); web.destroy(); }
         super.onDestroy();
     }

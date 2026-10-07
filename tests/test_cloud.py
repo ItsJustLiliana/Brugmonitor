@@ -73,6 +73,8 @@ class CloudTests(unittest.TestCase):
     def test_fcm_message_channel_topic_and_short_lifetime(self):
         message = self.relay.message({"event_id": "event-1", "status": "OPEN", "detail": "Nog 5 minuten"}, 60)
         self.assertEqual(message.topic, TOPIC)
+        self.assertEqual(message.android.notification.tag, "bridge-status")
+        self.assertEqual(message.android.collapse_key, "bridge-status")
         self.assertEqual(message.android.notification.channel_id, CHANNEL)
         self.assertEqual(message.android.notification.priority, "high")
         self.assertTrue(message.android.notification.default_vibrate_timings)

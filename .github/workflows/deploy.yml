@@ -1,0 +1,46 @@
+name: Deploy Brugmonitor server
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'android/**'
+      - 'app_config.json'
+      - '*.md'
+      - 'scripts/build-apk.ps1'
+      - 'build-apk.cmd'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: brugmonitor-production
+  cancel-in-progress: false
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+          cache: pip
+      - run: python -m pip install -r requirements.txt
+      - run: python -m unittest discover -s tests -v
+      - run: bash -n deploy/auto-update.sh deploy/update.sh
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Connect to Arch server tailnet
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:github-actions
+          ping: archlinux.tail50bfa9.ts.net
+      - name: Update server and restart service
+        run: |
+          tailscale ssh marijn@archlinux.tail50bfa9.ts.net \
+            "/usr/bin/bash -lc 'git -C /projects/Brugmonitor fetch --no-tags origin main && git -C /projects/Brugmonitor show origin/main:deploy/auto-update.sh | /usr/bin/bash -s'"

@@ -1,21 +1,24 @@
 plugins { id 'com.android.application' }
+def appConfig = new groovy.json.JsonSlurper().parse(rootProject.file('../app_config.json'))
 def firebaseConfigured = file('google-services.json').exists()
 if (firebaseConfigured) { apply plugin: 'com.google.gms.google-services' }
 android {
     namespace 'nl.brugmonitor.app'
     compileSdk 36
     defaultConfig {
-        applicationId 'nl.brugmonitor.app'
+        applicationId appConfig.androidApplicationId
         minSdk 26
         targetSdk 36
-        versionCode System.getenv('BRUGMONITOR_VERSION_CODE') ? 100 + Integer.parseInt(System.getenv('BRUGMONITOR_VERSION_CODE')) : 3
-        versionName '0.2.1'
+        versionCode appConfig.buildNumber as int
+        versionName appConfig.version
         buildConfigField 'boolean', 'FIREBASE_CONFIGURED', firebaseConfigured.toString()
+        buildConfigField 'String', 'UPDATE_FEED_URL', groovy.json.JsonOutput.toJson(appConfig.updateFeedUrl)
     }
     buildFeatures { buildConfig true }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
 }
 dependencies {
+    implementation 'androidx.core:core:1.17.0'
     implementation platform('com.google.firebase:firebase-bom:34.19.0')
     implementation 'com.google.firebase:firebase-messaging'
     implementation 'com.google.firebase:firebase-firestore'

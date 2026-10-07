@@ -5,8 +5,8 @@ import zipfile
 base = Path(__file__).resolve().parents[1]
 names = ["app.py", "cloud.py", "server.py", "requirements.txt", "index.html", ".env.example",
          "SERVER-SETUP.md", "firebase/firestore.rules", "firebase.json",
-         "deploy/brugmonitor.service", "deploy/install-user-service.sh", "deploy/update.sh",
-         "scripts/send-test-push.py", "tests/test_cloud.py", "tests/test_app.py"]
+         "deploy/brugmonitor.service", "deploy/install-user-service.sh", "deploy/update.sh", "deploy/auto-update.sh", "AUTOMATION.md",
+         "scripts/send-test-push.py", "tests/test_cloud.py", "tests/test_app.py", "tests/test_deploy.py"]
 target = base / "dist" / "Brugmonitor-server.zip"
 target.parent.mkdir(exist_ok=True)
 with zipfile.ZipFile(target, "w", compression=zipfile.ZIP_DEFLATED) as archive:

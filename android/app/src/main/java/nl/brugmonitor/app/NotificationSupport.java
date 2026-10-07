@@ -11,6 +11,9 @@ import android.os.Build;
 
 final class NotificationSupport {
     static final String CHANNEL = "bridge_status";
+    // FCM uses ID 0 with this tag in the background: reuse both in the foreground.
+    static final String TAG = "bridge-status";
+    static final int ID = 0;
     static void createChannel(Context c) {
         NotificationChannel channel = new NotificationChannel(CHANNEL, "Brugstatus", NotificationManager.IMPORTANCE_HIGH);
         channel.setDescription("Melding op het scherm wanneer de Sas van Gent brug opent of sluit");
@@ -27,7 +30,12 @@ final class NotificationSupport {
         NotificationChannel channel = manager.getNotificationChannel(CHANNEL);
         return manager.areNotificationsEnabled() && (channel == null || channel.getImportance() != NotificationManager.IMPORTANCE_NONE);
     }
-    static void cancel(Context c) { c.getSystemService(NotificationManager.class).cancel("bridge-status", 1); }
+    static void clearLegacy(Context c) { c.getSystemService(NotificationManager.class).cancel(TAG, 1); }
+    static void cancel(Context c) {
+        NotificationManager manager = c.getSystemService(NotificationManager.class);
+        manager.cancel(TAG, ID);
+        clearLegacy(c);
+    }
     @android.annotation.SuppressLint("MissingPermission")
     static void show(Context c, String title, String body, String eventId) {
         if (!allowed(c) || !PushSettings.wanted(c)) return;
@@ -40,7 +48,8 @@ final class NotificationSupport {
             .setCategory(Notification.CATEGORY_STATUS)
             .setStyle(new Notification.BigTextStyle().bigText(body)).setContentIntent(open)
             .setAutoCancel(true).build();
-        c.getSystemService(NotificationManager.class).notify("bridge-status", 1, notification);
+        clearLegacy(c);
+        c.getSystemService(NotificationManager.class).notify(TAG, ID, notification);
         if (!eventId.isEmpty()) PushSettings.prefs(c).edit().putString("last_push_event", eventId).apply();
     }
 }

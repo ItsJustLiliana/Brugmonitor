@@ -1,32 +1,31 @@
-# Automatisch bouwen
+# Alleen de server automatisch bijwerken
 
-Iedere push naar main start **Build Brugmonitor**: eerst de servertests en het serverpakket, daarna de Android-build met lint. Pull requests worden ook getest en gebouwd, zonder secrets of downloadbare APK. De handmatige knop **Run workflow** werkt alleen voor main om APK-versienummers in volgorde te houden.
+De workflow **Deploy Brugmonitor server** draait bij een serverwijziging op main. Eerst worden de tests uitgevoerd, daarna maakt GitHub via Tailscale verbinding met dezelfde Arch-server als StickStat. De server haalt main op, installeert dependencies, draait de tests en herstart brugmonitor.service. Een mislukte update wordt niet als voltooid gemarkeerd. De APK bouw je zelf met build-apk.cmd.
 
-## Eenmalig GitHub instellen
+## Eenmalig instellen
 
-Open https://github.com/ItsJustLiliana/Brugmonitor/settings/secrets/actions en kies **New repository secret**. Doe dit op de Windows-computer waarop de huidige APK is gebouwd.
+1. Open https://github.com/ItsJustLiliana/Brugmonitor/settings/secrets/actions.
+2. Voeg **TS_OAUTH_CLIENT_ID** en **TS_OAUTH_SECRET** toe: dezelfde Tailscale OAuth-client als voor StickStat. GitHub kan secrets van een andere repository niet automatisch overnemen. Heb je organisatie-secrets, geef Brugmonitor toegang.
+3. De bestaande Tailscale-regels moeten tag:github-actions laten verbinden met marijn op archlinux.tail50bfa9.ts.net. Dit is dezelfde verbinding als StickStat.
+4. Op de server moet /projects/Brugmonitor een schone Git-checkout op main zijn, met de bestaande .env, .venv en werkende brugmonitor.service.
+5. Open https://github.com/ItsJustLiliana/Brugmonitor/actions en start **Deploy Brugmonitor server** met **Run workflow** op main. Daarna starten serverwijzigingen de workflow vanzelf.
 
-1. Naam: **GOOGLE_SERVICES_JSON**. Voer in PowerShell vanuit de projectmap uit:
-   ```powershell
-   powershell -ExecutionPolicy Bypass -File scripts/copy-actions-secret.ps1 -Name GOOGLE_SERVICES_JSON
-   ```
-   Plak het klembord in het veld Secret en sla op.
-2. Naam: **ANDROID_DEBUG_KEYSTORE_BASE64**. Voer uit:
-   ```powershell
-   powershell -ExecutionPolicy Bypass -File scripts/copy-actions-secret.ps1 -Name ANDROID_DEBUG_KEYSTORE_BASE64
-   ```
-   Plak het klembord in het veld Secret en sla op. Deze sleutel moet dezelfde blijven: anders kan de APK niet over de huidige installatie worden geinstalleerd.
-3. Wis je klembord met `Set-Clipboard -Value ''`.
-4. Open https://github.com/ItsJustLiliana/Brugmonitor/actions, kies **Build Brugmonitor**, klik **Run workflow** en selecteer **main**.
+Bij alleen Android- of documentatiewijzigingen blijft de server draaien. Lokale wijzigingen aan bijgehouden serverbestanden blokkeren automatisch bijwerken; .env en andere genegeerde instellingen blijven bewaard. Er is geen domein of inkomende poort nodig en de Firebase-serverkey blijft op de server.
 
-De Firebase-service-account van de server hoeft niet naar GitHub. De workflow stopt als de benodigde appconfiguratie of ondertekeningssleutel ontbreekt.
+Controleer op de server met `systemctl --user status brugmonitor.service` en `journalctl --user -u brugmonitor.service -n 50 --no-pager`.
 
-## APK downloaden
+## Appversie en publiceren via je website
 
-Open de geslaagde workflowrun en download onder **Artifacts** het pakket **Brugmonitor-APK**. Pak de ZIP uit en installeer **app-debug.apk** op je telefoon. Je moet hiervoor ingelogd zijn op GitHub. Het serverpakket staat onder **Brugmonitor-server**. Downloads blijven 30 dagen beschikbaar.
+Pas alleen **app_config.json** aan: version is bijvoorbeeld **0.3.1** en buildNumber wordt bij iedere nieuwe APK hoger (nu **104**, volgende **105**). De Android-build neemt beide automatisch over. Bewaar dezelfde ondertekeningssleutel op je computer.
 
-Dit blijft een debug-APK voor eigen gebruik. De CI-builds krijgen oplopende versionCodes vanaf 101; lokale standaardbuilds hebben code 3 en kunnen daarna niet meer over de CI-app worden geinstalleerd. Gebruik voortaan de APK van de workflow, of stel lokaal BRUGMONITOR_VERSION_CODE in op een hoger runnummer voordat je bouwt. Bewaar dezelfde debug.keystore ook voor toekomstige lokale builds.
+1. Bouw met **build-apk.cmd**. De APK staat in **dist/Brugmonitor-debug.apk**.
+2. Publiceer het bestand **api/brugmonitor-release.php** uit **C:/wamp64/www/website** naar dezelfde api-map op je live website. Een kopie staat ook onder **deploy/website** in deze repository. Dit is eenmalig nodig; de live API bestond nog niet tijdens het instellen.
+3. Open https://liliananuzohra.com/edit-website, kies **Projects**, zoek **Brugmonitor**, en klik **Add Version**.
+4. Vul de versie in, upload de APK, voeg eventueel release notes toe en klik **Save Version**. Laat Coming soon en Archive uitgeschakeld.
+5. Controleer https://liliananuzohra.com/api/brugmonitor-release.php: de response moet data bevatten met version, buildNumber, packageName nl.brugmonitor.app, sha256 en downloadUrl. Zonder gepubliceerde versie is data null.
 
-Android installeert updates niet automatisch: de workflow maakt de APK beschikbaar, waarna je hem zelf installeert.
+De uploadfunctie van de website leest APK-versie, buildnummer, package en hash al automatisch. De nieuwe API sluit op die bestaande gegevens aan, net als die van StickStat.
 
-GitHub-documentatie: [Repository secrets](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-secrets) en [Artifacts downloaden](https://docs.github.com/en/actions/concepts/workflows-and-actions/workflow-artifacts).
+De app controleert bij openen/terugkeren op updates (maximaal eenmaal per vijf minuten). **Details → Controleren op updates** controleert direct. Bij een nieuwe versie verschijnt een prompt en een knop boven Details. Downloaden gebeurt in de app met controles op grootte, SHA-256, package, versie en dezelfde ondertekening. Android vraagt zo nodig eenmalig toestemming om vanuit Brugmonitor te installeren; daarna bevestig je de installatie in het Android-venster.
+
+De APK die deze updater bevat moet je eerst zelf installeren. Daarna kunnen volgende versies via de app worden gedownload en geinstalleerd.

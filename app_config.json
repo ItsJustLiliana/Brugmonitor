@@ -1,0 +1,7 @@
+{
+  "version": "0.3.0",
+  "buildNumber": 104,
+  "androidApplicationId": "nl.brugmonitor.app",
+  "updateFeedUrl": "https://liliananuzohra.com/api/brugmonitor-release.php",
+  "updatePageUrl": "https://liliananuzohra.com/projects?project=brugmonitor"
+}

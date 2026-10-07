@@ -38,4 +38,4 @@ python scripts/package-server.py
 
 De pakketten verschijnen in dist/ en worden niet gecommit. De APK is momenteel een debugbuild voor eigen testen.
 
-Automatische APK-builds en servertests: zie [AUTOMATION.md](AUTOMATION.md).
+Automatisch de server bijwerken en app-updates via je website: zie [AUTOMATION.md](AUTOMATION.md).
