@@ -1,4 +1,4 @@
-# Android 0.3.1
+# Android 0.3.2
 
 De app krijgt de brugstatus via Firestore en meldingen via Firebase Cloud Messaging. Volg SERVER-SETUP.md voor de Arch-server en Firebase-configuratie.
 
@@ -14,3 +14,5 @@ De app toont updates boven de Details-dropdown, downloadt de APK en opent de And
 Meldingen verschijnen niet bovenaan? Open **Details → Meldingen op scherm instellen** en activeer geluid en **Weergeven als pop-up** of **Op scherm tonen** voor Brugstatus. Android bewaart eerdere kanaalinstellingen na een update. Nieuwere brugmeldingen vervangen de vorige, zowel met geopende als gesloten app.
 
 Firebase-afspraken: topic brugmonitor-sas-van-gent-v1, document bridges/sas-van-gent, kanaal bridge_status. De Firebase-serverkey hoort alleen op de server. De app vraagt op Android 13+ meldingstoestemming. Dit is een debugbuild voor eigen gebruik, minimaal Android 8.
+
+Voor een nieuwe APK wijzig je alleen version en buildNumber in app_config.json. Huidig: 0.3.2 en 106. Volgende bijvoorbeeld: 0.3.3 en 107. build.gradle leest dit automatisch en controleert de invoer. Het Android-appicoon gebruikt hetzelfde blauwe bruglogo als de app, inclusief ronde en thematische launchericonen.
