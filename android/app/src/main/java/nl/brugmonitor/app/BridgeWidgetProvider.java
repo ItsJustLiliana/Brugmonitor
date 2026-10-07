@@ -21,7 +21,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class BridgeWidgetProvider extends AppWidgetProvider {
-    private static final String REFRESH = "nl.brugmonitor.app.WIDGET_REFRESH";
     private static final String CACHE = "widget_status";
 
     static boolean hasWidgets(Context c) {
@@ -35,7 +34,6 @@ public class BridgeWidgetProvider extends AppWidgetProvider {
     }
     @Override public void onReceive(Context c, Intent intent) {
         if ("nl.brugmonitor.app.WIDGET_EXPIRE".equals(intent.getAction())) updateAll(c);
-        else if (REFRESH.equals(intent.getAction())) refresh(c);
         else super.onReceive(c, intent);
     }
 
@@ -167,13 +165,12 @@ public class BridgeWidgetProvider extends AppWidgetProvider {
         views.setInt(R.id.widget_transition, "setDisplayedChild", active);
         views.setOnClickPendingIntent(R.id.widget_root, PendingIntent.getActivity(c, 0,
             new Intent(c, MainActivity.class), PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
-        views.setOnClickPendingIntent(R.id.widget_refresh, PendingIntent.getBroadcast(c, id,
-            new Intent(c, BridgeWidgetProvider.class).setAction(REFRESH), PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
         return views;
     }
 
     private static void fillCard(Context c, RemoteViews views, int index, String json, int width, int height) {
         int card = index == 0 ? R.id.widget_card_0 : R.id.widget_card_1;
+        int titleView = index == 0 ? R.id.widget_title_0 : R.id.widget_title_1;
         int statusView = index == 0 ? R.id.widget_status_0 : R.id.widget_status_1;
         int detailView = index == 0 ? R.id.widget_detail_0 : R.id.widget_detail_1;
         String state = "LADEN", detail = "";
@@ -199,12 +196,14 @@ public class BridgeWidgetProvider extends AppWidgetProvider {
         boolean showDetail = !detail.isEmpty() && (tall || width >= 240);
         if (!tall) detail = detail.replace("Nog ongeveer ", "± ").replace(" minuten open", " min").replace(" minuut open", " min");
         views.setInt(card, "setBackgroundResource", background);
+        views.setTextViewText(titleView, "Sas van Gent");
         views.setTextViewText(statusView, state);
         views.setTextViewText(detailView, detail);
         views.setViewVisibility(detailView, showDetail ? View.VISIBLE : View.GONE);
         views.setInt(detailView, "setMaxLines", tall && height >= 100 ? 2 : 1);
-        views.setTextViewTextSize(statusView, android.util.TypedValue.COMPLEX_UNIT_SP, tall ? (width >= 280 ? 36 : 30) : (showDetail ? 16 : 24));
-        views.setTextViewTextSize(detailView, android.util.TypedValue.COMPLEX_UNIT_SP, tall ? (width >= 280 ? 15 : 13) : 10);
+        views.setTextViewTextSize(titleView, android.util.TypedValue.COMPLEX_UNIT_SP, tall ? 11 : 9);
+        views.setTextViewTextSize(statusView, android.util.TypedValue.COMPLEX_UNIT_SP, tall ? (width >= 320 ? 34 : 30) : (showDetail ? 16 : 24));
+        views.setTextViewTextSize(detailView, android.util.TypedValue.COMPLEX_UNIT_SP, tall ? (width >= 320 ? 14 : 13) : 10);
         views.setContentDescription(card, state + (detail.isEmpty() ? "" : ", " + detail)
             + (outdated ? ", laatst bekende status" : ""));
     }
