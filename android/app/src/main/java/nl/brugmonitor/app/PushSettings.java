@@ -54,7 +54,18 @@ final class PushSettings {
         });
     }
 
-    static void sync(Context c) { if (wanted(c) && configured(c) && NotificationSupport.allowed(c)) enable(c); }
+    static void sync(Context c) {
+        Context app = c.getApplicationContext();
+        if (wanted(app) && configured(app) && NotificationSupport.allowed(app)
+            && !prefs(app).getBoolean("push_subscribed", false)) enable(app);
+    }
+
+    static void tokenChanged(Context c) {
+        Context app = c.getApplicationContext();
+        if (!wanted(app)) return;
+        prefs(app).edit().putBoolean("push_subscribed", false).apply();
+        sync(app);
+    }
 
     static String json(Context c) {
         try {
