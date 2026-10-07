@@ -587,7 +587,7 @@
     function updatePushButton() {
       if (!nativeApp) return;
       const state = JSON.parse(Android.getPushState());
-      if (pendingNotificationTarget === false && !state.busy && !state.enabled && !state.wanted) {
+      if (pendingNotificationTarget === false && (!state.busy && !state.enabled && !state.wanted || state.error)) {
         pendingNotificationTarget = null;
       }
       const pending = state.busy || pendingNotificationTarget !== null;
@@ -796,6 +796,7 @@
         window.setTimeout(updatePushButton, 100);
       } else {
         saveBrowserNotifications(false);
+        els.notify.disabled = false;
       }
     });
 
