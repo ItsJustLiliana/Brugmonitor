@@ -6,7 +6,13 @@ import com.google.firebase.messaging.RemoteMessage;
 public class BridgeMessagingService extends FirebaseMessagingService {
     @Override public void onMessageReceived(RemoteMessage message) {
         RemoteMessage.Notification notification = message.getNotification();
-        if (notification != null) {
+        if (message.getData().containsKey("status")) {
+            NotificationSupport.showStatus(this, message.getData().getOrDefault("title", "Brugmonitor"),
+                message.getData().getOrDefault("body", ""),
+                message.getData().getOrDefault("event_id", ""),
+                message.getData().get("status"),
+                Boolean.parseBoolean(message.getData().getOrDefault("update", "false")));
+        } else if (notification != null) {
             NotificationSupport.show(this, notification.getTitle(), notification.getBody(),
                 message.getData().getOrDefault("event_id", ""));
         }

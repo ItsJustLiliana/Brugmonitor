@@ -73,11 +73,12 @@ class CloudTests(unittest.TestCase):
     def test_fcm_message_channel_topic_and_short_lifetime(self):
         message = self.relay.message({"event_id": "event-1", "status": "OPEN", "detail": "Nog 5 minuten"}, 60)
         self.assertEqual(message.topic, TOPIC)
-        self.assertEqual(message.android.notification.tag, "bridge-status")
+        self.assertIsNone(message.notification)
+        self.assertIsNone(message.android.notification)
         self.assertEqual(message.android.collapse_key, "bridge-status")
-        self.assertEqual(message.android.notification.channel_id, CHANNEL)
-        self.assertEqual(message.android.notification.priority, "high")
-        self.assertTrue(message.android.notification.default_vibrate_timings)
+        self.assertEqual(message.android.priority, "high")
+        self.assertEqual(message.data["body"], "Nog 5 minuten")
+        self.assertEqual(message.data["update"], "false")
         self.assertEqual(message.android.ttl.total_seconds(), 60)
         self.assertEqual(message.data["event_id"], "event-1")
 
@@ -89,3 +90,28 @@ class CloudTests(unittest.TestCase):
         self.assertFalse(self.relay.process_pending(now=102))
         self.assertIsNone(self.relay.outbox.due(now=103))
         self.sender.assert_not_called()
+
+    def test_remaining_minutes_update_the_open_notification_silently(self):
+        self.relay.transition("DICHT", "OPEN", "Nog 5 minuten")
+        self.relay.process_pending()
+        self.relay.transition("OPEN", "OPEN", "Nog 4 minuten")
+        self.relay.process_pending()
+        payload = self.sender.call_args.args[0]
+        self.assertTrue(payload["update"])
+        self.assertEqual(payload["detail"], "Nog 4 minuten")
+        self.relay.transition("OPEN", "OPEN", "Nog 4 minuten")
+        self.assertFalse(self.relay.process_pending())
+
+    def test_minute_update_preserves_pending_initial_alert(self):
+        self.relay.transition("DICHT", "OPEN", "Nog 5 minuten")
+        self.relay.transition("OPEN", "OPEN", "Nog 4 minuten")
+        self.relay.process_pending()
+        self.assertFalse(self.sender.call_args.args[0]["update"])
+
+    def test_closed_notification_is_a_separate_alert(self):
+        self.relay.transition("DICHT", "OPEN", "Nog 5 minuten")
+        self.relay.process_pending()
+        self.relay.transition("OPEN", "DICHT", "De brug is dicht")
+        self.relay.process_pending()
+        self.assertEqual(self.sender.call_args.args[0]["status"], "DICHT")
+        self.assertFalse(self.sender.call_args.args[0]["update"])

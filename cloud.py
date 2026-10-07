@@ -34,10 +34,15 @@ class PushOutbox:
         finally:
             db.close()
 
-    def enqueue(self, status, detail, now=None):
-        event = {"event_id": str(uuid.uuid4()), "status": status, "detail": detail}
+    def enqueue(self, status, detail, now=None, update=False):
+        event = {"event_id": str(uuid.uuid4()), "status": status, "detail": detail, "update": update}
         created = time.time() if now is None else now
         with self.connect() as db:
+            pending = db.execute("SELECT payload FROM pending WHERE slot=1").fetchone()
+            if update and pending:
+                previous = json.loads(pending[0])
+                if previous["status"] == status and not previous.get("update", False):
+                    event["update"] = False  # Keep the first opening alert audible.
             db.execute("INSERT OR REPLACE INTO pending(slot,id,created,payload,attempts,retry_at) VALUES(1,?,?,?,?,?)", (event["event_id"], created, json.dumps(event), 0, 0))
         return event["event_id"]
 
@@ -83,6 +88,7 @@ class FirebaseRelay:
         self.stop = threading.Event()
         self.thread = None
         self.current_status = None
+        self.current_detail = None
 
     @staticmethod
     def message(payload, ttl):
@@ -91,11 +97,11 @@ class FirebaseRelay:
         title = "Brugmonitor testmelding" if status == "TEST" else "Sas van Gent brug is " + ("open" if status == "OPEN" else "dicht")
         return messaging.Message(
             topic=TOPIC,
-            notification=messaging.Notification(title=title, body=payload.get("detail", "")),
-            data={"status": status, "event_id": payload["event_id"]},
+            data={"status": status, "event_id": payload["event_id"],
+                  "title": title, "body": payload.get("detail", ""),
+                  "update": str(payload.get("update", False)).lower()},
             android=messaging.AndroidConfig(
                 priority="high", ttl=timedelta(seconds=max(1, ttl)), collapse_key="bridge-status",
-                notification=messaging.AndroidNotification(channel_id=CHANNEL, icon="ic_stat_bridge", tag="bridge-status", sound="default", default_vibrate_timings=True, priority="high"),
             ),
         )
 
@@ -121,13 +127,18 @@ class FirebaseRelay:
         return True
 
     def transition(self, previous, current, detail):
+        old_detail = self.current_detail
         if current in ("OPEN", "DICHT"):
+            self.current_detail = detail
             self.current_status = current
             self.wake.set()
         if previous in ("OPEN", "DICHT") and current in ("OPEN", "DICHT") and previous != current:
             self.outbox.enqueue(current, detail)
             self.wake.set()
             return True
+        if previous == current == "OPEN" and old_detail is not None and detail != old_detail:
+            self.outbox.enqueue(current, detail, update=True)
+            self.wake.set()
         return False
 
     def start(self):

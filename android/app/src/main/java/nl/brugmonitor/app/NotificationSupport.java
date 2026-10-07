@@ -11,7 +11,7 @@ import android.os.Build;
 
 final class NotificationSupport {
     static final String CHANNEL = "bridge_status";
-    // FCM uses ID 0 with this tag in the background: reuse both in the foreground.
+    // Legacy FCM notifications and test messages use this tag.
     static final String TAG = "bridge-status";
     static final int ID = 0;
     static void createChannel(Context c) {
@@ -34,12 +34,31 @@ final class NotificationSupport {
     static void cancel(Context c) {
         NotificationManager manager = c.getSystemService(NotificationManager.class);
         manager.cancel(TAG, ID);
+        manager.cancel("bridge-open", ID);
+        manager.cancel("bridge-closed", ID);
         clearLegacy(c);
     }
     @android.annotation.SuppressLint("MissingPermission")
     static void show(Context c, String title, String body, String eventId) {
+        showStatus(c, title, body, eventId, "TEST", false);
+    }
+    @android.annotation.SuppressLint("MissingPermission")
+    static void showStatus(Context c, String title, String body, String eventId, String status, boolean update) {
         if (!allowed(c) || !PushSettings.wanted(c)) return;
         if (!eventId.isEmpty() && eventId.equals(PushSettings.prefs(c).getString("last_push_event", ""))) return;
+        NotificationManager manager = c.getSystemService(NotificationManager.class);
+        String tag = "OPEN".equals(status) ? "bridge-open" : "DICHT".equals(status) ? "bridge-closed" : TAG;
+        if (update) {
+            boolean active = false;
+            for (android.service.notification.StatusBarNotification posted : manager.getActiveNotifications()) {
+                if (tag.equals(posted.getTag()) && posted.getId() == ID) active = true;
+            }
+            if (!active) return; // Do not restore an opening notification the user dismissed.
+        }
+        if ("DICHT".equals(status)) {
+            manager.cancel("bridge-open", ID);
+            manager.cancel(TAG, ID);
+        }
         createChannel(c);
         Intent intent = new Intent(c, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         PendingIntent open = PendingIntent.getActivity(c, 0, intent, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
@@ -47,9 +66,9 @@ final class NotificationSupport {
             .setSmallIcon(R.drawable.ic_stat_bridge).setContentTitle(title).setContentText(body)
             .setCategory(Notification.CATEGORY_STATUS)
             .setStyle(new Notification.BigTextStyle().bigText(body)).setContentIntent(open)
-            .setAutoCancel(true).build();
+            .setOnlyAlertOnce(update).setAutoCancel(true).build();
         clearLegacy(c);
-        c.getSystemService(NotificationManager.class).notify(TAG, ID, notification);
+        c.getSystemService(NotificationManager.class).notify(tag, ID, notification);
         if (!eventId.isEmpty()) PushSettings.prefs(c).edit().putString("last_push_event", eventId).apply();
     }
 }
