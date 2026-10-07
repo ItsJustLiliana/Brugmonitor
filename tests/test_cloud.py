@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from unittest.mock import Mock, patch
 from pathlib import Path
-from cloud import FirebaseRelay, PushOutbox, TOPIC, CHANNEL, TTL_SECONDS
+from cloud import FirebaseRelay, PushOutbox, TOPIC, CHANNEL, TTL_SECONDS, notification_body
 
 
 class CloudTests(unittest.TestCase):
@@ -69,6 +69,11 @@ class CloudTests(unittest.TestCase):
         self.document.set.side_effect = None
         self.assertTrue(self.relay.publish(self.payload, now=101))
         self.assertTrue(self.relay.publish_ok)
+
+    def test_open_notification_does_not_repeat_open_in_subtitle(self):
+        self.assertEqual(notification_body("OPEN", "Nog ongeveer 13 minuten open"), "Nog ongeveer 13 minuten")
+        self.assertEqual(notification_body("OPEN", "Langer open dan verwacht"), "Langer open dan verwacht")
+        self.assertEqual(notification_body("DICHT", "De brug is dicht"), "De brug is dicht")
 
     def test_fcm_message_channel_topic_and_short_lifetime(self):
         message = self.relay.message({"event_id": "event-1", "status": "OPEN", "detail": "Nog 5 minuten"}, 60)
