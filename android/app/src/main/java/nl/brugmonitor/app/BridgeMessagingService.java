@@ -9,6 +9,7 @@ public class BridgeMessagingService extends FirebaseMessagingService {
         BridgeWidgetProvider.receivePush(this, message.getData(), message.getSentTime());
         sendBroadcast(new android.content.Intent(this, BridgeWidgetProvider.class)
             .setAction("nl.brugmonitor.app.WIDGET_REFRESH"));
+        if (Boolean.parseBoolean(message.getData().getOrDefault("widget_only", "false"))) return;
         if (message.getData().containsKey("status")) {
             NotificationSupport.showStatus(this, message.getData().getOrDefault("title", notification != null ? notification.getTitle() : "Brugmonitor"),
                 message.getData().getOrDefault("body", notification != null ? notification.getBody() : ""),
