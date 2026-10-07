@@ -74,6 +74,8 @@ class CloudTests(unittest.TestCase):
         message = self.relay.message({"event_id": "event-1", "status": "OPEN", "detail": "Nog 5 minuten"}, 60)
         self.assertEqual(message.topic, TOPIC)
         self.assertEqual(message.android.notification.channel_id, CHANNEL)
+        self.assertEqual(message.android.notification.priority, "high")
+        self.assertTrue(message.android.notification.default_vibrate_timings)
         self.assertEqual(message.android.ttl.total_seconds(), 60)
         self.assertEqual(message.data["event_id"], "event-1")
 

@@ -95,7 +95,7 @@ class FirebaseRelay:
             data={"status": status, "event_id": payload["event_id"]},
             android=messaging.AndroidConfig(
                 priority="high", ttl=timedelta(seconds=max(1, ttl)), collapse_key="bridge-status",
-                notification=messaging.AndroidNotification(channel_id=CHANNEL, icon="ic_stat_bridge", tag="bridge-status", sound="default"),
+                notification=messaging.AndroidNotification(channel_id=CHANNEL, icon="ic_stat_bridge", tag="bridge-status", sound="default", default_vibrate_timings=True, priority="high"),
             ),
         )
 

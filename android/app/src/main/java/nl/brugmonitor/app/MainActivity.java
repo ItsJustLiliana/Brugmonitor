@@ -21,12 +21,32 @@ public class MainActivity extends Activity {
         NotificationSupport.createChannel(this);
         status = new StatusRepository(this);
         web = new WebView(this);
-        setContentView(web);
-        web.setOnApplyWindowInsetsListener((v, insets) -> {
-            v.setPadding(insets.getSystemWindowInsetLeft(), insets.getSystemWindowInsetTop(),
-                insets.getSystemWindowInsetRight(), insets.getSystemWindowInsetBottom());
+        // WebView content ignores its own padding on some devices; inset the container instead.
+        android.widget.FrameLayout content = new android.widget.FrameLayout(this);
+        content.setBackgroundColor(android.graphics.Color.WHITE);
+        content.addView(web, new android.widget.FrameLayout.LayoutParams(-1, -1));
+        setContentView(content);
+        content.setOnApplyWindowInsetsListener((v, insets) -> {
+            int left, top, right, bottom;
+            if (Build.VERSION.SDK_INT >= 30) {
+                android.graphics.Insets safe = insets.getInsets(
+                    android.view.WindowInsets.Type.systemBars() | android.view.WindowInsets.Type.displayCutout());
+                left = safe.left; top = safe.top; right = safe.right; bottom = safe.bottom;
+            } else {
+                left = insets.getSystemWindowInsetLeft(); top = insets.getSystemWindowInsetTop();
+                right = insets.getSystemWindowInsetRight(); bottom = insets.getSystemWindowInsetBottom();
+                if (Build.VERSION.SDK_INT >= 28 && insets.getDisplayCutout() != null) {
+                    android.view.DisplayCutout cutout = insets.getDisplayCutout();
+                    left = Math.max(left, cutout.getSafeInsetLeft());
+                    top = Math.max(top, cutout.getSafeInsetTop());
+                    right = Math.max(right, cutout.getSafeInsetRight());
+                    bottom = Math.max(bottom, cutout.getSafeInsetBottom());
+                }
+            }
+            v.setPadding(left, top, right, bottom);
             return insets;
         });
+        content.requestApplyInsets();
         web.getSettings().setJavaScriptEnabled(true);
         web.getSettings().setDomStorageEnabled(true);
         web.getSettings().setAllowFileAccess(false);
@@ -76,6 +96,14 @@ public class MainActivity extends Activity {
         @JavascriptInterface public String getStatusJSON() { return status.json(); }
         @JavascriptInterface public String getPushState() { return PushSettings.json(MainActivity.this); }
         @JavascriptInterface public void toggleNotifications() { runOnUiThread(() -> MainActivity.this.toggleNotifications()); }
+        @JavascriptInterface public void openNotificationSettings() {
+            runOnUiThread(() -> {
+                Intent settings = new Intent(android.provider.Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+                    .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, getPackageName())
+                    .putExtra(android.provider.Settings.EXTRA_CHANNEL_ID, NotificationSupport.CHANNEL);
+                startActivity(settings);
+            });
+        }
     }
 
     @Override protected void onResume() {

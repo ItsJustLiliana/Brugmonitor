@@ -3,7 +3,7 @@ import sys
 import re
 import threading
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -211,17 +211,17 @@ def scrape_once():
 
     if indicator["type"] == "remaining":
         mins = indicator["minutes"]
-        close_time = now + timedelta(minutes=mins)
         message = "De brug is open"
-        detail = f"Naar verwachting nog ongeveer {mins} minuten open • sluiting rond {close_time:%H:%M}"
+        unit = "minuut" if mins == 1 else "minuten"
+        detail = f"Nog ongeveer {mins} {unit} open"
 
     elif indicator["type"] == "open_overdue":
         message = "De brug is open"
-        detail = "Langer open dan verwacht • sluitingstijd is momenteel niet betrouwbaar"
+        detail = "Sluitingstijd onbekend"
 
     elif indicator["type"] == "closed_overdue":
         message = "De brug is dicht"
-        detail = "Langer dicht dan verwacht"
+        detail = "De brug is dicht"
 
     elif indicator["type"] == "recently_closed":
         message = "De brug is dicht"

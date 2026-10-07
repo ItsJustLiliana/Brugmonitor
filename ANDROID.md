@@ -1,4 +1,4 @@
-# Android 0.2.0: Firebase
+# Android 0.2.1: Firebase
 
 De app ontvangt de brugstatus via Firestore en meldingen via Firebase Cloud Messaging. Geen domein, tunnel, serveradres of open serverpoort nodig.
 
@@ -18,7 +18,7 @@ Een controlebuild zonder Firebase-configuratie kan worden gemaakt met:
 `powershell -File scripts/build-apk.ps1`
 Deze app geeft duidelijk aan dat Firebase nog moet worden ingesteld en heeft geen live status of push. De gewone build-apk.cmd vereist een geldige appconfiguratie.
 
-De APK is een debugbuild voor eigen testen. Android-package nl.brugmonitor.app, minimaal Android 8, versie 0.2.0. Voor publicatie is later een vaste release-signingconfiguratie nodig.
+De APK is een debugbuild voor eigen testen. Android-package nl.brugmonitor.app, minimaal Android 8, versie 0.2.1. Voor publicatie is later een vaste release-signingconfiguratie nodig.
 
 De Firebase-topicnaam en het Firestore-document zijn vaste gedeelde afspraken tussen server en app:
 - topic: brugmonitor-sas-van-gent-v1
@@ -26,3 +26,5 @@ De Firebase-topicnaam en het Firestore-document zijn vaste gedeelde afspraken tu
 - notification channel: bridge_status
 
 De app bewaart de meldingskeuze, abonneert na identifierwijzigingen opnieuw, vraagt op Android 13+ toestemming en opent bij een melding de actuele Firestore-status.
+
+Als een melding alleen in het meldingenpaneel verschijnt, open in de app **Details ? Meldingen op scherm instellen**. Zet voor Brugstatus geluid en **Weergeven als pop-up** of **Op scherm tonen** aan (de naam verschilt per telefoon). Android bewaart eerdere kanaalinstellingen ook na een app-update. Een nieuwe installatie gebruikt hoge prioriteit, geluid en trillen.

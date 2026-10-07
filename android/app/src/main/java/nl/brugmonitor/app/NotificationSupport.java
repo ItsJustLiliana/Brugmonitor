@@ -5,13 +5,20 @@ import android.app.*;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.media.AudioAttributes;
+import android.media.RingtoneManager;
 import android.os.Build;
 
 final class NotificationSupport {
     static final String CHANNEL = "bridge_status";
     static void createChannel(Context c) {
         NotificationChannel channel = new NotificationChannel(CHANNEL, "Brugstatus", NotificationManager.IMPORTANCE_HIGH);
-        channel.setDescription("Melding wanneer de Sas van Gent brug opent of sluit");
+        channel.setDescription("Melding op het scherm wanneer de Sas van Gent brug opent of sluit");
+        channel.setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION),
+            new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build());
+        channel.enableVibration(true);
+        // Recreating a channel preserves the user's existing Android settings.
         c.getSystemService(NotificationManager.class).createNotificationChannel(channel);
     }
     static boolean allowed(Context c) {
@@ -30,6 +37,7 @@ final class NotificationSupport {
         PendingIntent open = PendingIntent.getActivity(c, 0, intent, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         Notification notification = new Notification.Builder(c, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_bridge).setContentTitle(title).setContentText(body)
+            .setCategory(Notification.CATEGORY_STATUS)
             .setStyle(new Notification.BigTextStyle().bigText(body)).setContentIntent(open)
             .setAutoCancel(true).build();
         c.getSystemService(NotificationManager.class).notify("bridge-status", 1, notification);

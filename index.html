@@ -140,6 +140,8 @@
       background: var(--blue-dark);
     }
 
+    [hidden] { display: none !important; }
+
     .notify-btn:disabled {
       opacity: .7;
       cursor: default;
@@ -268,7 +270,7 @@
 
     :root { --blue: #17677c; --blue-dark: #105468; --green: #147548; --red: #bc3437; --bg: #edf3f4; --text: #17333c; --muted: #536c75; }
     body { min-height: 100dvh; background: radial-gradient(ellipse at top, #dcebee, var(--bg) 65%); }
-    .topbar { background: #fff; color: var(--text); border-bottom: 1px solid #d7e4e7; padding: calc(15px + env(safe-area-inset-top)) 18px 15px; font-size: 16px; }
+    .topbar { background: #fff; color: var(--text); border-bottom: 1px solid #d7e4e7; padding: calc(21px + env(safe-area-inset-top)) 18px 17px; font-size: 16px; }
     .brand-icon { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 24px; margin-right: 5px; border-radius: 7px; background: var(--blue); color: #fff; }
     .page { width: min(100%, 580px); padding: 24px max(18px, env(safe-area-inset-left)) calc(28px + env(safe-area-inset-bottom)); }
     .location { text-align: left; margin: 0 0 22px; }
@@ -310,7 +312,7 @@
       <p>Kanaal Gent–Terneuzen</p>
     </section>
 
-    <div class="connection"><span id="connectionText" role="status">Verbinding maken…</span><span>Elke 3 seconden</span></div>
+    <div class="connection"><span id="connectionText" role="status">Verbinding maken…</span></div>
     <div id="warning" class="warning" role="alert">De live data kon niet worden ververst. De laatst bekende status blijft staan.</div>
     <section id="statusCard" class="status-card loading" aria-live="polite">
       <div class="status-label">BRUGSTATUS</div>
@@ -360,6 +362,11 @@
           </table>
         </div>
 
+        <div id="notificationSettings" hidden>
+          <button id="notificationSettingsBtn" class="secondary-btn" type="button">Meldingen op scherm instellen</button>
+          <p class="notify-help">Zet in Android ‘Weergeven als pop-up’ of ‘Op scherm tonen’ aan voor Brugstatus.</p>
+        </div>
+
         <div class="details-actions">
           <button id="refreshBtn" class="secondary-btn" type="button">Verversen</button>
           <a class="link-btn"
@@ -395,6 +402,8 @@
     function updatePushButton() {
       if (!nativeApp) return;
       const state = JSON.parse(Android.getPushState());
+      els.notify.hidden = !!state.enabled;
+      document.getElementById('notifyHelp').hidden = !!state.enabled;
       els.notify.disabled = !state.configured || state.busy;
       els.notify.textContent = !state.configured ? 'Firebase nog niet ingesteld'
         : state.busy ? 'Meldingen bijwerken…'
@@ -406,7 +415,8 @@
         : 'Krijg een melding wanneer de brug opent of sluit, ook als de app gesloten is.');
     }
     if (nativeApp) {
-      document.querySelector('.connection span:last-child').textContent = 'Live updates';
+      document.getElementById('notificationSettings').hidden = false;
+      document.getElementById('notificationSettingsBtn').addEventListener('click', () => Android.openNotificationSettings());
       updatePushButton();
       setInterval(updatePushButton, 2000);
     }
@@ -460,6 +470,14 @@
       });
     }
 
+    function remainingText(data) {
+      const match = (data.live_text || '').match(/^nog\s*\+\/-\s*(\d+)\s*(?:minuut|minuten)$/i)
+        || (data.detail || '').match(/nog\s+ongeveer\s+(\d+)\s*(?:minuut|minuten)/i);
+      if (!match) return '';
+      const minutes = Number(match[1]);
+      return 'Nog ongeveer ' + minutes + (minutes === 1 ? ' minuut' : ' minuten') + ' open';
+    }
+
     function render(data) {
       if (data.status === 'OPEN' || data.status === 'DICHT') {
         const previous = lastSeenStatus;
@@ -469,16 +487,14 @@
         els.main.textContent = data.status;
 
         if (data.status === 'OPEN') {
-          els.sub.textContent = data.live_text
-            ? data.live_text.replace(/^nog\s*/i, 'Nog ')
-            : 'De brug is open';
+          const remaining = remainingText(data);
+          els.sub.textContent = remaining || 'De brug is open';
+          els.detail.textContent = remaining ? '' : 'Sluitingstijd onbekend';
         } else {
           els.sub.textContent = 'De brug is dicht';
+          els.detail.textContent = /langer dicht dan verwacht/i.test(data.live_text || '')
+            ? '' : (data.detail || (data.live_text ? `Laatste opening: ${data.live_text}` : ''));
         }
-
-        els.detail.textContent = data.status === 'OPEN'
-          ? (data.detail || '')
-          : (data.live_text ? `Laatste opening: ${data.live_text}` : '');
 
         if (hasInitialStatus && previous && previous !== data.status) {
           showNotification(data.status, data);
@@ -491,7 +507,7 @@
       els.warning.style.display = data.stale ? 'block' : 'none';
       connection.className = 'connection ' + (data.stale ? 'stale' : data.status ? 'live' : '');
       connectionText.textContent = data.stale ? 'Verbinding onderbroken' : data.status ? 'Live verbonden' : 'Status ophalen…';
-      els.liveText.textContent = data.live_text || '—';
+      els.liveText.textContent = data.status === 'OPEN' ? (remainingText(data) || 'Sluitingstijd onbekend') : (data.live_text || '—');
       els.lastSuccess.textContent = formatDate(data.last_success);
       els.lastChange.textContent = formatDate(data.last_change);
       renderHistory(data.history);
@@ -543,16 +559,16 @@
       const permission = await Notification.requestPermission();
 
       if (permission === 'granted') {
-        els.notify.textContent = 'Meldingen ingeschakeld';
-        els.notify.disabled = true;
+        els.notify.hidden = true;
+        document.getElementById('notifyHelp').hidden = true;
       } else {
         els.notify.textContent = 'Meldingen niet toegestaan';
       }
     });
 
     if (!nativeApp && 'Notification' in window && Notification.permission === 'granted') {
-      els.notify.textContent = 'Meldingen ingeschakeld';
-      els.notify.disabled = true;
+      els.notify.hidden = true;
+      document.getElementById('notifyHelp').hidden = true;
     }
 
     fetchStatus();
