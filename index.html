@@ -171,15 +171,13 @@
     summary::-webkit-details-marker { display: none; }
 
     summary::after {
-      content: "⌄";
+      content: "+";
       font-size: 22px;
       color: var(--muted);
-      transition: transform .2s ease;
+      width: 22px;
+      text-align: center;
     }
-
-    details[open] summary::after {
-      transform: rotate(180deg);
-    }
+    details[open] summary::after { content: "\2212"; }
 
     .details-body {
       border-top: 1px solid var(--border);
@@ -302,8 +300,12 @@
     @media (max-width: 350px) { .page { padding-left: 12px; padding-right: 12px; } th, td { font-size: 11px; padding: 9px 4px; } .connection { font-size: 11px; } }
     @media (prefers-reduced-motion: reduce) { *, *::after { transition: none !important; } }
     body { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; }
-    .page { flex: 1; display: flex; flex-direction: column; }
-    .bottom-section { margin-top: auto; padding-top: 24px; }
+    .page { display: flex; flex-direction: column; }
+    .page > * { flex-shrink: 0; }
+    .native-app .topbar { padding: 12px 18px; }
+    .native-app .page { padding-bottom: 20px; }
+    .bottom-spacer { height: 24px; flex: none; overflow-anchor: none; }
+    .bottom-section { flex: none; overflow-anchor: none; }
     .update-panel { padding: 16px; margin-bottom: 14px; border: 1px solid var(--border); border-radius: 14px; background: var(--card); }
     .update-panel p { color: var(--muted); line-height: 1.5; font-size: 14px; }
     .update-panel button { width: 100%; }
@@ -326,13 +328,13 @@
       <div id="statusSub" class="status-sub">Status ophalen…</div>
       <div id="statusDetail" class="status-detail"></div>
     </section>
-    <div id="warning" class="warning" role="alert">De live data kon niet worden ververst. De laatst bekende status blijft staan.</div>
 
     <button id="notifyBtn" class="notify-btn" type="button">
       Meldingen inschakelen
     </button>
 
     <p class="notify-help" id="notifyHelp">Ontvang een melding als de brug opent of sluit, zolang deze pagina actief is.</p>
+    <div class="bottom-spacer" aria-hidden="true"></div>
     <div class="bottom-section">
     <section id="updatePanel" class="update-panel" hidden aria-live="polite">
       <strong id="updateTitle">Nieuwe versie beschikbaar</strong>
@@ -394,6 +396,7 @@
         </div>
       </div>
     </details>
+    <div id="warning" class="warning" role="alert">De live data kon niet worden ververst. De laatst bekende status blijft staan.</div>
     </div>
   </main>
 
@@ -416,6 +419,31 @@
     let hasInitialStatus = false;
     let refreshing = false;
     const nativeApp = typeof Android !== 'undefined';
+    if (nativeApp) document.documentElement.classList.add('native-app');
+
+    // Reserve the same gap using the collapsed summary, never the expanded body.
+    // This keeps Details in place and lets its contents continue below the screen.
+    const bottomSpacer = document.querySelector('.bottom-spacer');
+    const detailsSummary = document.querySelector('summary');
+    const page = document.querySelector('.page');
+    function positionDetails() {
+      const existingGap = bottomSpacer.getBoundingClientRect().height;
+      const summaryBottom = detailsSummary.getBoundingClientRect().bottom + window.scrollY;
+      const bottomPadding = parseFloat(getComputedStyle(page).paddingBottom) || 0;
+      const gap = Math.max(24, window.innerHeight - bottomPadding - (summaryBottom - existingGap));
+      bottomSpacer.style.height = gap + 'px';
+    }
+    let layoutFrame;
+    function scheduleDetailsLayout() {
+      cancelAnimationFrame(layoutFrame);
+      layoutFrame = requestAnimationFrame(positionDetails);
+    }
+    const layoutObserver = new ResizeObserver(scheduleDetailsLayout);
+    for (const element of document.querySelectorAll('.topbar, .location, .connection, .status-card, .notify-btn, .notify-help, .update-panel, summary')) {
+      layoutObserver.observe(element);
+    }
+    window.addEventListener('resize', scheduleDetailsLayout);
+    scheduleDetailsLayout();
     let browserNotificationsWanted = true;
     try { browserNotificationsWanted = localStorage.getItem('brugmonitor_notifications') !== 'off'; } catch {}
     function updateBrowserPushButton() {

@@ -19,6 +19,7 @@ public class MainActivity extends Activity {
     @android.annotation.SuppressLint("SetJavaScriptEnabled")
     @Override public void onCreate(Bundle saved) {
         super.onCreate(saved);
+        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
         NotificationSupport.createChannel(this);
         NotificationSupport.clearLegacy(this);
         status = new StatusRepository(this);
@@ -47,7 +48,8 @@ public class MainActivity extends Activity {
                 }
             }
             v.setPadding(left, top, right, bottom);
-            return insets;
+            // The container handles safe areas once; do not apply them again in the WebView.
+            return Build.VERSION.SDK_INT >= 30 ? android.view.WindowInsets.CONSUMED : insets.consumeSystemWindowInsets();
         });
         content.requestApplyInsets();
         web.getSettings().setJavaScriptEnabled(true);
@@ -69,7 +71,7 @@ public class MainActivity extends Activity {
             java.io.ByteArrayOutputStream output = new java.io.ByteArrayOutputStream();
             byte[] buffer = new byte[4096]; int count;
             while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
-            web.loadDataWithBaseURL("https://brugmonitor.local/", output.toString("UTF-8"), "text/html", null, null);
+            web.loadDataWithBaseURL("https://brugmonitor.local/", output.toString("UTF-8").replace("<html lang=\"nl\">", "<html lang=\"nl\" class=\"native-app\">"), "text/html", null, null);
         } catch (java.io.IOException e) {
             Toast.makeText(this, "De apppagina kan niet worden geladen", Toast.LENGTH_LONG).show();
         }
