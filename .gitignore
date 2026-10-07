@@ -1,0 +1,82 @@
+# Python environments, caches and test output
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+*.egg-info/
+
+# Local environment variables; keep safe templates
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Firebase client config and private server credentials
+google-services.json
+GoogleService-Info.plist
+*adminsdk*.json
+*service-account*.json
+*service_account*.json
+*serviceAccount*.json
+*credentials*.json
+*-private-key*.json
+secrets/
+.secrets/
+credentials/
+
+# Signing keys and certificates
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+*.key
+key.properties
+keystore.properties
+
+# Android/Gradle generated files and local SDK settings
+.gradle/
+.kotlin/
+.cxx/
+.externalNativeBuild/
+build/
+local.properties
+android/app/src/main/assets/index.html
+*.apk
+*.aab
+*.apks
+
+# Runtime data, packages, logs and temporary files
+.data/
+dist/
+*.sqlite
+*.sqlite3
+*.sqlite-*
+*.sqlite3-*
+*.db
+*.db-*
+*.log
+.tmp/
+tmp/
+temp/
+%SystemDrive%/
+
+# Local editor/agent configuration and operating-system files
+.idea/
+.vscode/
+.agents/
+.codex/
+*.iml
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
+*~

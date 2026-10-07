@@ -1,0 +1,97 @@
+package nl.brugmonitor.app;
+
+import android.Manifest;
+import android.app.Activity;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.net.Uri;
+import android.os.Build;
+import android.os.Bundle;
+import android.webkit.*;
+import android.widget.Toast;
+
+public class MainActivity extends Activity {
+    private WebView web;
+    private StatusRepository status;
+
+    // Only trusted bundled HTML runs in the WebView. Links always open externally.
+    @android.annotation.SuppressLint("SetJavaScriptEnabled")
+    @Override public void onCreate(Bundle saved) {
+        super.onCreate(saved);
+        NotificationSupport.createChannel(this);
+        status = new StatusRepository(this);
+        web = new WebView(this);
+        setContentView(web);
+        web.setOnApplyWindowInsetsListener((v, insets) -> {
+            v.setPadding(insets.getSystemWindowInsetLeft(), insets.getSystemWindowInsetTop(),
+                insets.getSystemWindowInsetRight(), insets.getSystemWindowInsetBottom());
+            return insets;
+        });
+        web.getSettings().setJavaScriptEnabled(true);
+        web.getSettings().setDomStorageEnabled(true);
+        web.getSettings().setAllowFileAccess(false);
+        web.getSettings().setAllowContentAccess(false);
+        web.addJavascriptInterface(new Bridge(), "Android");
+        web.setWebViewClient(new WebViewClient() {
+            @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                Uri uri = request.getUrl();
+                if ("https".equals(uri.getScheme()) || "http".equals(uri.getScheme())) {
+                    try { startActivity(new Intent(Intent.ACTION_VIEW, uri)); }
+                    catch (android.content.ActivityNotFoundException e) { Toast.makeText(MainActivity.this, "Geen browser beschikbaar", Toast.LENGTH_SHORT).show(); }
+                }
+                return true;
+            }
+        });
+        try (java.io.InputStream input = getAssets().open("index.html")) {
+            java.io.ByteArrayOutputStream output = new java.io.ByteArrayOutputStream();
+            byte[] buffer = new byte[4096]; int count;
+            while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
+            web.loadDataWithBaseURL("https://brugmonitor.local/", output.toString("UTF-8"), "text/html", null, null);
+        } catch (java.io.IOException e) {
+            Toast.makeText(this, "De apppagina kan niet worden geladen", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void toggleNotifications() {
+        if (!PushSettings.configured(this)) return;
+        if (PushSettings.wanted(this)) {
+            PushSettings.disable(this);
+        } else if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 33);
+        } else {
+            PushSettings.enable(this);
+        }
+    }
+
+    @Override public void onRequestPermissionsResult(int code, String[] permissions, int[] results) {
+        super.onRequestPermissionsResult(code, permissions, results);
+        if (code == 33) {
+            if (results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED) PushSettings.enable(this);
+            else PushSettings.error = "Sta meldingen toe in de Android-instellingen van Brugmonitor.";
+        }
+    }
+
+    public class Bridge {
+        @JavascriptInterface public boolean isFirebaseConfigured() { return PushSettings.configured(MainActivity.this); }
+        @JavascriptInterface public String getStatusJSON() { return status.json(); }
+        @JavascriptInterface public String getPushState() { return PushSettings.json(MainActivity.this); }
+        @JavascriptInterface public void toggleNotifications() { runOnUiThread(() -> MainActivity.this.toggleNotifications()); }
+    }
+
+    @Override protected void onResume() {
+        super.onResume();
+        if (web != null) web.onResume();
+        if (status != null) status.start();
+        PushSettings.sync(this);
+    }
+    @Override protected void onPause() {
+        if (status != null) status.stop();
+        if (web != null) web.onPause();
+        super.onPause();
+    }
+    @Override protected void onDestroy() {
+        if (status != null) status.stop();
+        if (web != null) { web.removeJavascriptInterface("Android"); web.destroy(); }
+        super.onDestroy();
+    }
+}

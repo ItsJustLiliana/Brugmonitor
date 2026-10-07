@@ -1,0 +1,23 @@
+[Unit]
+Description=Brugmonitor Selenium, Firestore and Firebase push
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=@PROJECT_DIR@
+Environment=PYTHONUNBUFFERED=1
+Environment=TZ=Europe/Amsterdam
+EnvironmentFile=@PROJECT_DIR@/.env
+ExecStart=@PROJECT_DIR@/.venv/bin/python @PROJECT_DIR@/server.py
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=50
+KillMode=control-group
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+UMask=0077
+
+[Install]
+WantedBy=default.target

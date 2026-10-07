@@ -1,0 +1,562 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#3f9ebc">
+  <title>Sas van Gent brug</title>
+  <style>
+    :root {
+      --blue: #3f9ebc;
+      --blue-dark: #2d87a4;
+      --green: #18863f;
+      --red: #dc2d24;
+      --bg: #f4f6f8;
+      --card: #ffffff;
+      --text: #202124;
+      --muted: #6d747c;
+      --border: #e1e5e9;
+      --warning-bg: #fff6d8;
+      --warning-text: #755b00;
+    }
+
+    * { box-sizing: border-box; }
+
+    html {
+      -webkit-text-size-adjust: 100%;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button, summary, a {
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .topbar {
+      background: var(--blue);
+      color: white;
+      padding: max(14px, env(safe-area-inset-top)) 18px 14px;
+      text-align: center;
+      font-size: 18px;
+      font-weight: 750;
+      letter-spacing: .01em;
+    }
+
+    .page {
+      width: min(100%, 620px);
+      margin: 0 auto;
+      padding: 16px 14px max(26px, env(safe-area-inset-bottom));
+    }
+
+    .location {
+      text-align: center;
+      margin: 6px 0 14px;
+    }
+
+    .location h1 {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 750;
+    }
+
+    .location p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .status-card {
+      border-radius: 18px;
+      min-height: 210px;
+      padding: 28px 20px;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      transition: background-color .2s ease;
+    }
+
+    .status-card.open { background: var(--red); }
+    .status-card.closed { background: var(--green); }
+    .status-card.loading { background: #777d83; }
+
+    .status-main {
+      font-size: clamp(66px, 22vw, 108px);
+      line-height: .95;
+      font-weight: 850;
+      letter-spacing: .015em;
+    }
+
+    .status-sub {
+      margin-top: 16px;
+      font-size: 18px;
+      font-weight: 650;
+      line-height: 1.35;
+    }
+
+    .status-detail {
+      margin-top: 5px;
+      font-size: 14px;
+      opacity: .92;
+      line-height: 1.4;
+    }
+
+    .warning {
+      display: none;
+      margin: 0 0 12px;
+      padding: 11px 13px;
+      border-radius: 11px;
+      background: var(--warning-bg);
+      color: var(--warning-text);
+      font-size: 14px;
+      text-align: center;
+      border: 1px solid #ead68a;
+    }
+
+    .notify-btn {
+      width: 100%;
+      min-height: 52px;
+      border: 0;
+      border-radius: 14px;
+      margin-top: 14px;
+      background: var(--blue);
+      color: white;
+      font: inherit;
+      font-size: 16px;
+      font-weight: 750;
+      cursor: pointer;
+    }
+
+    .notify-btn:active {
+      background: var(--blue-dark);
+    }
+
+    .notify-btn:disabled {
+      opacity: .7;
+      cursor: default;
+    }
+
+    details {
+      margin-top: 14px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+
+    summary {
+      list-style: none;
+      min-height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 0 16px;
+      font-weight: 700;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    summary::-webkit-details-marker { display: none; }
+
+    summary::after {
+      content: "⌄";
+      font-size: 22px;
+      color: var(--muted);
+      transition: transform .2s ease;
+    }
+
+    details[open] summary::after {
+      transform: rotate(180deg);
+    }
+
+    .details-body {
+      border-top: 1px solid var(--border);
+      padding: 14px 16px 16px;
+    }
+
+    .detail-row {
+      padding: 10px 0;
+      border-bottom: 1px solid #eef1f3;
+    }
+
+    .detail-row:last-child {
+      border-bottom: 0;
+    }
+
+    .detail-label {
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 3px;
+    }
+
+    .detail-value {
+      font-size: 14px;
+      font-weight: 650;
+      overflow-wrap: anywhere;
+    }
+
+    .section-title {
+      margin: 18px 0 8px;
+      font-size: 14px;
+      font-weight: 750;
+    }
+
+    .history-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 470px;
+      font-size: 13px;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 10px 11px;
+      border-bottom: 1px solid #edf0f2;
+    }
+
+    th {
+      color: var(--muted);
+      font-size: 12px;
+      background: #fafbfc;
+    }
+
+    .details-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .secondary-btn,
+    .link-btn {
+      min-height: 44px;
+      border-radius: 11px;
+      border: 1px solid var(--border);
+      background: white;
+      color: var(--text);
+      font: inherit;
+      font-size: 14px;
+      font-weight: 650;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 10px;
+      cursor: pointer;
+    }
+
+    @media (min-width: 700px) {
+      .page { padding-top: 24px; }
+      .status-card { min-height: 240px; }
+    }
+  
+    :root { --blue: #17677c; --blue-dark: #105468; --green: #147548; --red: #bc3437; --bg: #edf3f4; --text: #17333c; --muted: #536c75; }
+    body { min-height: 100dvh; background: radial-gradient(ellipse at top, #dcebee, var(--bg) 65%); }
+    .topbar { background: #fff; color: var(--text); border-bottom: 1px solid #d7e4e7; padding: calc(15px + env(safe-area-inset-top)) 18px 15px; font-size: 16px; }
+    .brand-icon { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 24px; margin-right: 5px; border-radius: 7px; background: var(--blue); color: #fff; }
+    .page { width: min(100%, 580px); padding: 24px max(18px, env(safe-area-inset-left)) calc(28px + env(safe-area-inset-bottom)); }
+    .location { text-align: left; margin: 0 0 22px; }
+    .location h1 { font-size: clamp(24px, 6vw, 30px); letter-spacing: -.03em; }
+    .location p { margin-top: 6px; }
+    .connection { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 10px; color: var(--muted); font-size: 12px; }
+    #connectionText::before { content: ''; display: inline-block; width: 7px; height: 7px; margin-right: 6px; background: #879ca4; border-radius: 50%; }
+    .connection.live #connectionText::before { background: var(--green); }
+    .connection.stale #connectionText::before { background: #ad790d; }
+    .status-card { padding: 26px 18px; min-height: 246px; border-radius: 22px; box-shadow: 0 10px 28px #163b4212; }
+    .status-label { margin-bottom: 20px; font-size: 11px; font-weight: 700; letter-spacing: .16em; opacity: .82; }
+    .status-main { font-size: clamp(48px, 18vw, 92px); letter-spacing: -.04em; line-height: 1; max-width: 100%; }
+    .status-card.loading .status-main { font-size: clamp(32px, 12vw, 64px); }
+    .status-sub { font-size: 18px; margin-top: 18px; }
+    .status-detail { max-width: 380px; margin-top: 8px; }
+    .notify-btn { margin-top: 20px; border-radius: 12px; }
+    .notify-btn:hover { background: var(--blue-dark); }
+    .notify-help { margin: 9px 12px 20px; font-size: 12px; line-height: 1.5; text-align: center; color: var(--muted); }
+    button:focus-visible, summary:focus-visible, a:focus-visible { outline: 3px solid #2794b3; outline-offset: 3px; }
+    details { border-radius: 16px; box-shadow: 0 4px 16px #163b4205; }
+    summary { min-height: 58px; }
+    .detail-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 14px; align-items: start; padding: 13px 0; }
+    .detail-label { font-size: 12px; line-height: 1.5; }
+    .detail-value { font-size: 13px; text-align: right; line-height: 1.5; }
+    table { min-width: 0; font-size: 12px; font-variant-numeric: tabular-nums; }
+    th, td { padding: 10px 6px; white-space: nowrap; }
+    .history-wrap { width: 100%; }
+    .warning { text-align: left; line-height: 1.5; }
+    @media (max-width: 350px) { .page { padding-left: 12px; padding-right: 12px; } th, td { font-size: 11px; padding: 9px 4px; } .connection { font-size: 11px; } }
+    @media (prefers-reduced-motion: reduce) { *, *::after { transition: none !important; } }
+  </style>
+</head>
+<body>
+  <header class="topbar"><span class="brand-icon" aria-hidden="true"><svg width="22" height="20" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 34h38M11 10v29M37 10v29M11 12Q24 32 37 12M18 23v11M24 26v8M30 23v11"/></svg></span> Brugmonitor</header>
+
+  <main class="page">
+    <section class="location">
+      <h1>Sas van Gent brug</h1>
+      <p>Kanaal Gent–Terneuzen</p>
+    </section>
+
+    <div class="connection"><span id="connectionText" role="status">Verbinding maken…</span><span>Elke 3 seconden</span></div>
+    <div id="warning" class="warning" role="alert">De live data kon niet worden ververst. De laatst bekende status blijft staan.</div>
+    <section id="statusCard" class="status-card loading" aria-live="polite">
+      <div class="status-label">BRUGSTATUS</div>
+      <div id="statusMain" class="status-main">LADEN</div>
+      <div id="statusSub" class="status-sub">Status ophalen…</div>
+      <div id="statusDetail" class="status-detail"></div>
+    </section>
+
+    <button id="notifyBtn" class="notify-btn" type="button">
+      Meldingen inschakelen
+    </button>
+
+    <p class="notify-help" id="notifyHelp">Ontvang een melding als de brug opent of sluit, zolang deze pagina actief is.</p>
+    <details>
+      <summary>Details</summary>
+      <div class="details-body">
+
+        <div class="detail-row">
+          <div class="detail-label">Live tekst Brug-open</div>
+          <div id="liveText" class="detail-value">—</div>
+        </div>
+
+        <div class="detail-row">
+          <div class="detail-label">Laatste succesvolle controle</div>
+          <div id="lastSuccess" class="detail-value">—</div>
+        </div>
+
+        <div class="detail-row">
+          <div class="detail-label">Laatste statuswijziging</div>
+          <div id="lastChange" class="detail-value">—</div>
+        </div>
+
+        <div class="section-title">Recente brugopeningen</div>
+        <div class="history-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Vanaf</th>
+                <th scope="col">Tot</th>
+                <th scope="col">Datum</th>
+                <th scope="col">Duur</th>
+              </tr>
+            </thead>
+            <tbody id="historyBody">
+              <tr><td colspan="4">Laden…</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="details-actions">
+          <button id="refreshBtn" class="secondary-btn" type="button">Verversen</button>
+          <a class="link-btn"
+             href="https://www.brug-open.nl/brug/sas%20van%20gent/sas%20van%20gent%20brug"
+             target="_blank"
+             rel="noopener noreferrer">Brug-open</a>
+        </div>
+      </div>
+    </details>
+  </main>
+
+  <script>
+    const els = {
+      card: document.getElementById('statusCard'),
+      main: document.getElementById('statusMain'),
+      sub: document.getElementById('statusSub'),
+      detail: document.getElementById('statusDetail'),
+      warning: document.getElementById('warning'),
+      notify: document.getElementById('notifyBtn'),
+      refresh: document.getElementById('refreshBtn'),
+      liveText: document.getElementById('liveText'),
+      lastSuccess: document.getElementById('lastSuccess'),
+      lastChange: document.getElementById('lastChange'),
+      history: document.getElementById('historyBody'),
+    };
+
+    let lastSeenStatus = null;
+    let hasInitialStatus = false;
+    let refreshing = false;
+    const nativeApp = typeof Android !== 'undefined';
+    const connection = document.querySelector('.connection');
+    const connectionText = document.getElementById('connectionText');
+    function updatePushButton() {
+      if (!nativeApp) return;
+      const state = JSON.parse(Android.getPushState());
+      els.notify.disabled = !state.configured || state.busy;
+      els.notify.textContent = !state.configured ? 'Firebase nog niet ingesteld'
+        : state.busy ? 'Meldingen bijwerken…'
+        : state.wanted ? 'Meldingen uitschakelen' : 'Meldingen inschakelen';
+      document.getElementById('notifyHelp').textContent = state.error || (!state.configured
+        ? 'Installeer de appversie met jouw Firebase-configuratie.'
+        : state.enabled ? 'Je ontvangt een melding bij openen en sluiten, ook wanneer de app gesloten is.'
+        : state.wanted && !state.busy ? 'Meldingen nog niet actief. Controleer je internet en Android-meldingstoestemming.'
+        : 'Krijg een melding wanneer de brug opent of sluit, ook als de app gesloten is.');
+    }
+    if (nativeApp) {
+      document.querySelector('.connection span:last-child').textContent = 'Live updates';
+      updatePushButton();
+      setInterval(updatePushButton, 2000);
+    }
+
+    function formatDate(value) {
+      if (!value) return '—';
+      const d = new Date(value);
+      if (Number.isNaN(d.getTime())) return value;
+      return new Intl.DateTimeFormat('nl-NL', {
+        dateStyle: 'short',
+        timeStyle: 'medium'
+      }).format(d);
+    }
+
+    function renderHistory(rows) {
+      els.history.innerHTML = '';
+
+      if (!Array.isArray(rows) || rows.length === 0) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = '<td colspan="4">Geen gegevens</td>';
+        els.history.appendChild(tr);
+        return;
+      }
+
+      for (const row of rows) {
+        const tr = document.createElement('tr');
+
+        for (const key of ['from', 'to', 'date', 'duration']) {
+          const td = document.createElement('td');
+          td.textContent = row[key] || '—';
+          tr.appendChild(td);
+        }
+
+        els.history.appendChild(tr);
+      }
+    }
+
+    function showNotification(status, data) {
+      if (nativeApp) return;
+      if (!('Notification' in window)) return;
+      if (Notification.permission !== 'granted') return;
+
+      const title = status === 'OPEN'
+        ? '🌉 Sas van Gent brug is open'
+        : '✅ Sas van Gent brug is dicht';
+
+      new Notification(title, {
+        body: data.detail || '',
+        tag: 'sas-van-gent-bridge-status',
+        renotify: true
+      });
+    }
+
+    function render(data) {
+      if (data.status === 'OPEN' || data.status === 'DICHT') {
+        const previous = lastSeenStatus;
+        lastSeenStatus = data.status;
+
+        els.card.className = 'status-card ' + (data.status === 'OPEN' ? 'open' : 'closed');
+        els.main.textContent = data.status;
+
+        if (data.status === 'OPEN') {
+          els.sub.textContent = data.live_text
+            ? data.live_text.replace(/^nog\s*/i, 'Nog ')
+            : 'De brug is open';
+        } else {
+          els.sub.textContent = 'De brug is dicht';
+        }
+
+        els.detail.textContent = data.status === 'OPEN'
+          ? (data.detail || '')
+          : (data.live_text ? `Laatste opening: ${data.live_text}` : '');
+
+        if (hasInitialStatus && previous && previous !== data.status) {
+          showNotification(data.status, data);
+        }
+
+        hasInitialStatus = true;
+      }
+
+      els.warning.textContent = 'De live data kon niet worden ververst. De laatst bekende status blijft staan.';
+      els.warning.style.display = data.stale ? 'block' : 'none';
+      connection.className = 'connection ' + (data.stale ? 'stale' : data.status ? 'live' : '');
+      connectionText.textContent = data.stale ? 'Verbinding onderbroken' : data.status ? 'Live verbonden' : 'Status ophalen…';
+      els.liveText.textContent = data.live_text || '—';
+      els.lastSuccess.textContent = formatDate(data.last_success);
+      els.lastChange.textContent = formatDate(data.last_change);
+      renderHistory(data.history);
+    }
+
+    async function fetchStatus() {
+      if (refreshing) return;
+      refreshing = true;
+
+      try {
+        if (nativeApp) {
+          const raw = Android.getStatusJSON();
+          if (!raw) throw new Error('Nog geen Firebase-status');
+          render(JSON.parse(raw));
+        } else {
+          const res = await fetch('/api/status', { cache: 'no-store', signal: AbortSignal.timeout(10000) });
+          if (!res.ok) throw new Error('Status ophalen mislukt');
+          render(await res.json());
+        }
+      } catch {
+        els.warning.style.display = 'block';
+        connection.className = 'connection stale';
+        connectionText.textContent = 'Geen verbinding';
+        if (!hasInitialStatus) {
+          els.main.textContent = 'WACHTEN';
+          els.sub.textContent = 'Geen live status beschikbaar';
+          els.detail.textContent = nativeApp ? (Android.isFirebaseConfigured() ? 'Wachten op live gegevens. Controleer de internetverbinding.' : 'Installeer de app met jouw Firebase-configuratie.') : 'Controleer of de monitor actief is.';
+          els.warning.textContent = 'De live status kon niet worden opgehaald. Er is nog geen laatst bekende status.';
+        }
+      } finally {
+        refreshing = false;
+      }
+    }
+
+    els.refresh.addEventListener('click', fetchStatus);
+
+    els.notify.addEventListener('click', async () => {
+      if (nativeApp) {
+        Android.toggleNotifications();
+        updatePushButton();
+        return;
+      }
+      if (!('Notification' in window)) {
+        els.notify.textContent = 'Meldingen niet ondersteund';
+        els.notify.disabled = true;
+        return;
+      }
+
+      const permission = await Notification.requestPermission();
+
+      if (permission === 'granted') {
+        els.notify.textContent = 'Meldingen ingeschakeld';
+        els.notify.disabled = true;
+      } else {
+        els.notify.textContent = 'Meldingen niet toegestaan';
+      }
+    });
+
+    if (!nativeApp && 'Notification' in window && Notification.permission === 'granted') {
+      els.notify.textContent = 'Meldingen ingeschakeld';
+      els.notify.disabled = true;
+    }
+
+    fetchStatus();
+    setInterval(fetchStatus, 3000);
+  </script>
+</body>
+</html>
