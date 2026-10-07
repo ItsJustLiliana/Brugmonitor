@@ -573,7 +573,7 @@
     const connection = document.querySelector('.connection');
     const connectionText = document.getElementById('connectionText');
     function updateAppButton() {
-      if (!nativeApp || typeof Android.getUpdateState !== 'function') return;
+      if (!nativeApp || typeof Android.getUpdateState !== 'function') return null;
       const state = JSON.parse(Android.getUpdateState());
       document.getElementById('appUpdates').hidden = false;
       document.getElementById('appVersion').textContent = 'Brugmonitor ' + (state.currentVersion || '');
@@ -583,6 +583,7 @@
       document.getElementById('updateCheckMessage').textContent = state.available ? '' : (state.message || '');
       document.getElementById('updateBtn').disabled = !!state.busy;
       document.getElementById('updateBtn').textContent = state.busy ? 'Downloaden...' : 'Downloaden en installeren';
+      return state;
     }
     function updatePushButton() {
       if (!nativeApp) return;
@@ -608,8 +609,11 @@
       if (typeof Android.getUpdateState === 'function') {
         document.getElementById('updateBtn').addEventListener('click', () => Android.downloadUpdate());
         document.getElementById('checkUpdateBtn').addEventListener('click', () => Android.checkForUpdate());
-        updateAppButton();
-        setInterval(updateAppButton, 500);
+        const pollAppUpdateState = () => {
+          const state = updateAppButton();
+          window.setTimeout(pollAppUpdateState, state && (state.busy || state.available) ? 500 : 2000);
+        };
+        pollAppUpdateState();
       }
       updatePushButton();
       setInterval(updatePushButton, 2000);
@@ -897,8 +901,27 @@
 
     updateBrowserPushButton();
 
-    fetchStatus();
-    setInterval(fetchStatus, 3000);
+    let statusPollTimer = null;
+    function scheduleStatusPoll() {
+      if (statusPollTimer !== null) window.clearTimeout(statusPollTimer);
+      if (document.hidden) {
+        statusPollTimer = null;
+        return;
+      }
+      statusPollTimer = window.setTimeout(async () => {
+        await fetchStatus();
+        scheduleStatusPoll();
+      }, 3000);
+    }
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        if (statusPollTimer !== null) window.clearTimeout(statusPollTimer);
+        statusPollTimer = null;
+      } else {
+        fetchStatus().finally(scheduleStatusPoll);
+      }
+    });
+    fetchStatus().finally(scheduleStatusPoll);
   </script>
 </body>
 </html>
