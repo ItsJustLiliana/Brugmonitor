@@ -83,6 +83,7 @@ desktop.ini
 
 # Finished documentation and local AI tooling
 *.md
+!docs/README.md
 *.txt
 !requirements.txt
 .cursor/
