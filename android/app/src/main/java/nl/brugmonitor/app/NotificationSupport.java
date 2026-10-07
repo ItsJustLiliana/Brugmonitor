@@ -55,8 +55,8 @@ final class NotificationSupport {
             }
             if (!active) return; // Do not restore an opening notification the user dismissed.
         }
-        if ("DICHT".equals(status)) {
-            manager.cancel("bridge-open", ID);
+        if ("OPEN".equals(status) || "DICHT".equals(status)) {
+            manager.cancel("OPEN".equals(status) ? "bridge-closed" : "bridge-open", ID);
             manager.cancel(TAG, ID);
         }
         createChannel(c);
