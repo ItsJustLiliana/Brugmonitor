@@ -315,7 +315,8 @@
     #appUpdates { text-align: center; margin-top: 18px; }
     #appVersion { margin-bottom: 10px; }
     #checkUpdateBtn { display: inline-flex; align-items: center; justify-content: center; }
-    .pull-indicator { position: fixed; top: 12px; left: 50%; z-index: 10; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; background: white; border-radius: 50%; box-shadow: 0 3px 14px #17333c33; opacity: 0; transform: translate(-50%, -56px); pointer-events: none; }
+    .pull-layer { position: fixed; left: 0; right: 0; top: 0; height: 72px; z-index: 10; overflow: hidden; pointer-events: none; }
+    .pull-indicator { position: absolute; top: 12px; left: 50%; z-index: 10; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; background: white; border-radius: 50%; box-shadow: 0 3px 14px #17333c33; opacity: 0; transform: translate(-50%, -56px); pointer-events: none; }
     .pull-indicator.visible { opacity: 1; }
     .pull-spinner { width: 20px; height: 20px; border: 2px solid #dcebee; border-top-color: var(--blue); border-radius: 50%; }
     .pull-indicator.busy .pull-spinner { animation: pull-spin .7s linear infinite; }
@@ -323,7 +324,7 @@
   </style>
 </head>
 <body>
-  <div id="pullIndicator" class="pull-indicator" role="status" aria-label="Verversen" aria-hidden="true"><span class="pull-spinner" aria-hidden="true"></span></div>
+  <div id="pullLayer" class="pull-layer"><div id="pullIndicator" class="pull-indicator" role="status" aria-label="Verversen" aria-hidden="true"><span class="pull-spinner" aria-hidden="true"></span></div></div>
   <header class="topbar"><span class="brand-icon" aria-hidden="true"><svg width="22" height="20" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 34h38M11 10v29M37 10v29M11 12Q24 32 37 12M18 23v11M24 26v8M30 23v11"/></svg></span> Brugmonitor</header>
 
   <main class="page">
@@ -393,9 +394,9 @@
           <button id="checkUpdateBtn" class="secondary-btn" type="button">Controleren op updates</button>
           <p class="notify-help" id="updateCheckMessage" role="status"></p>
         </div>
+    <div id="warning" class="warning" role="alert">De live data kon niet worden ververst. De laatst bekende status blijft staan.</div>
       </div>
     </details>
-    <div id="warning" class="warning" role="alert">De live data kon niet worden ververst. De laatst bekende status blijft staan.</div>
     </div>
   </main>
 
@@ -581,10 +582,16 @@
         hasInitialStatus = true;
       }
 
-      els.warning.textContent = 'De live data kon niet worden ververst. De laatst bekende status blijft staan.';
+      els.warning.textContent = data.source_stale
+        ? 'De monitor kan de brugstatus momenteel niet ophalen. De laatst bekende status blijft staan.'
+        : data.status_read_failed
+        ? 'De app kan de live status momenteel niet lezen. De laatst bekende status blijft staan.'
+        : data.status_expired
+        ? 'De opgeslagen brugstatus is niet recent. De laatst bekende status blijft staan.'
+        : 'De live status is niet recent bevestigd. De laatst bekende status blijft staan.';
       els.warning.style.display = data.stale ? 'block' : 'none';
       connection.className = 'connection ' + (data.stale ? 'stale' : data.status ? 'live' : '');
-      connectionText.textContent = data.stale ? 'Verbinding onderbroken' : data.status ? 'Live verbonden' : 'Status ophalen…';
+      connectionText.textContent = data.stale ? 'Status niet recent bevestigd' : data.status_from_cache ? 'Lokaal opgeslagen status' : data.status ? 'Live verbonden' : 'Status ophalen...';
       els.liveText.textContent = data.status === 'OPEN' ? (remainingText(data) || 'Sluitingstijd onbekend') : (data.live_text || '—');
       els.lastSuccess.textContent = formatDate(data.last_success);
       els.lastChange.textContent = formatDate(data.last_change);
@@ -651,6 +658,7 @@
     let pullDistance = 0;
     let pullBusy = false;
     function showPull(distance, busy = false) {
+      document.getElementById('pullLayer').style.top = Math.max(0, document.querySelector('.topbar').getBoundingClientRect().bottom) + 'px';
       pullIndicator.classList.toggle('visible', distance > 0 || busy);
       pullIndicator.classList.toggle('busy', busy);
       pullIndicator.setAttribute('aria-hidden', String(!(distance > 0 || busy)));

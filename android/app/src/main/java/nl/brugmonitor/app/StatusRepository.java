@@ -42,7 +42,12 @@ final class StatusRepository {
             long checked = OffsetDateTime.parse(data.optString("last_success")).toInstant().toEpochMilli();
             long maxAge = Math.max(90, data.optLong("heartbeat_seconds", 30) * 3) * 1000;
             boolean old = System.currentTimeMillis() - checked > maxAge;
-            data.put("stale", data.optBoolean("stale") || old || fromCache || failed);
+            // A cached snapshot can still be recent; cache provenance is not a read failure.
+            data.put("status_from_cache", fromCache);
+            data.put("status_read_failed", failed);
+            data.put("status_expired", old);
+            data.put("source_stale", data.optBoolean("stale"));
+            data.put("stale", data.optBoolean("stale") || old || failed);
             return data.toString();
         } catch (Exception e) { return ""; }
     }
