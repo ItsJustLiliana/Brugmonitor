@@ -1,6 +1,5 @@
 package nl.brugmonitor.app;
 
-import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
@@ -46,7 +45,6 @@ final class AppUpdater {
         busy = true; lastCheck = System.currentTimeMillis();
         if (force) update("Updates controleren...", true);
         worker.execute(() -> {
-            JSONObject pendingPrompt = null;
             String message = "";
             try {
                 JSONObject payload = readFeed(BuildConfig.UPDATE_FEED_URL);
@@ -58,7 +56,6 @@ final class AppUpdater {
                     if (release == null || !release.optString("sha256").equals(candidate.getString("sha256"))) downloaded = null;
                     release = candidate;
                     message = "Nieuwe versie beschikbaar";
-                    pendingPrompt = candidate;
                 } else {
                     release = null; downloaded = null;
                     message = force ? (candidate == null ? "Nog geen apprelease gepubliceerd" : "Je hebt de nieuwste versie") : "";
@@ -67,21 +64,6 @@ final class AppUpdater {
             finally {
                 synchronized (this) { busy = false; if (!closed) update(message, false); }
             }
-            if (pendingPrompt != null) prompt(pendingPrompt);
-        });
-    }
-    void focused() { if (release != null && !busy && !waitingForPermission) prompt(release); }
-    private void prompt(JSONObject candidate) {
-        activity.runOnUiThread(() -> {
-            if (closed || activity.isFinishing() || activity.isDestroyed() || !activity.hasWindowFocus()) return;
-            long build = candidate.optLong("buildNumber");
-            android.content.SharedPreferences prefs = activity.getSharedPreferences("updates", 0);
-            if (prefs.getLong("promptedBuild", 0) == build) return;
-            prefs.edit().putLong("promptedBuild", build).apply();
-            new AlertDialog.Builder(activity).setTitle("Brugmonitor " + candidate.optString("version"))
-                .setMessage("Er is een nieuwe versie. Wil je die downloaden en installeren?")
-                .setNegativeButton("Later", null)
-                .setPositiveButton("Downloaden", (dialog, which) -> download()).show();
         });
     }
     private static void validate(JSONObject candidate) throws Exception {

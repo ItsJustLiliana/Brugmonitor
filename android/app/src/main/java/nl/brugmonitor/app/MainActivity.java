@@ -121,10 +121,7 @@ public class MainActivity extends Activity {
         PushSettings.sync(this);
         if (updater != null) updater.resume();
     }
-    @Override public void onWindowFocusChanged(boolean focused) {
-        super.onWindowFocusChanged(focused);
-        if (focused && updater != null) updater.focused();
-    }
+
 
     @Override protected void onPause() {
         if (updater != null) updater.pause();
