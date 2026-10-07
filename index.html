@@ -438,7 +438,7 @@
       els.notify.disabled = !state.configured || state.busy;
       els.notify.textContent = !state.configured ? 'Firebase nog niet ingesteld'
         : state.busy ? 'Meldingen bijwerken…'
-        : state.wanted ? 'Meldingen uitschakelen' : 'Meldingen inschakelen';
+        : state.wanted ? 'Meldingen opnieuw inschakelen' : 'Meldingen inschakelen';
       document.getElementById('notifyHelp').textContent = state.error || (!state.configured
         ? 'Installeer de appversie met jouw Firebase-configuratie.'
         : state.enabled ? 'Je ontvangt een melding bij openen en sluiten, ook wanneer de app gesloten is.'

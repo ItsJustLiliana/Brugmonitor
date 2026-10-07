@@ -1,4 +1,4 @@
-# Android 0.3.0
+# Android 0.3.1
 
 De app krijgt de brugstatus via Firestore en meldingen via Firebase Cloud Messaging. Volg SERVER-SETUP.md voor de Arch-server en Firebase-configuratie.
 

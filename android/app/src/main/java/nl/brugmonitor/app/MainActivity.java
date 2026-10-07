@@ -77,7 +77,7 @@ public class MainActivity extends Activity {
 
     private void toggleNotifications() {
         if (!PushSettings.configured(this)) return;
-        if (PushSettings.wanted(this)) {
+        if (PushSettings.wanted(this) && PushSettings.prefs(this).getBoolean("push_subscribed", false) && NotificationSupport.allowed(this)) {
             PushSettings.disable(this);
         } else if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 33);
@@ -119,7 +119,13 @@ public class MainActivity extends Activity {
         PushSettings.sync(this);
         if (updater != null) updater.resume();
     }
+    @Override public void onWindowFocusChanged(boolean focused) {
+        super.onWindowFocusChanged(focused);
+        if (focused && updater != null) updater.focused();
+    }
+
     @Override protected void onPause() {
+        if (updater != null) updater.pause();
         if (status != null) status.stop();
         if (web != null) web.onPause();
         super.onPause();

@@ -24,6 +24,8 @@ final class AppUpdater {
     private long lastCheck;
     private volatile File downloaded;
     private boolean waitingForPermission;
+    private boolean resumed;
+    private boolean pendingInstall;
     private volatile boolean closed;
 
     AppUpdater(MainActivity activity) { this.activity = activity; update("", false); }
@@ -44,20 +46,31 @@ final class AppUpdater {
         busy = true; lastCheck = System.currentTimeMillis();
         if (force) update("Updates controleren...", true);
         worker.execute(() -> {
+            JSONObject pendingPrompt = null;
+            String message = "";
             try {
                 JSONObject payload = readFeed(BuildConfig.UPDATE_FEED_URL);
+                if (!payload.has("data") || (!payload.isNull("data") && !(payload.get("data") instanceof JSONObject)))
+                    throw new IOException("Ongeldige releasegegevens");
                 JSONObject candidate = payload.optJSONObject("data");
+                if (candidate != null) validate(candidate);
                 if (candidate != null && candidate.getLong("buildNumber") > BuildConfig.VERSION_CODE) {
-                    validate(candidate);
                     if (release == null || !release.optString("sha256").equals(candidate.getString("sha256"))) downloaded = null;
                     release = candidate;
-                    update("Nieuwe versie beschikbaar", false);
-                    prompt(candidate);
-                } else { release = null; downloaded = null; update(force ? (candidate == null ? "Nog geen apprelease gepubliceerd" : "Je hebt de nieuwste versie") : "", false); }
-            } catch (Exception error) { update(force ? "Updates controleren lukt nu niet. Probeer later opnieuw." : "", false); }
-            finally { busy = false; }
+                    message = "Nieuwe versie beschikbaar";
+                    pendingPrompt = candidate;
+                } else {
+                    release = null; downloaded = null;
+                    message = force ? (candidate == null ? "Nog geen apprelease gepubliceerd" : "Je hebt de nieuwste versie") : "";
+                }
+            } catch (Exception error) { message = force ? "Updates controleren lukt nu niet. Probeer later opnieuw." : ""; }
+            finally {
+                synchronized (this) { busy = false; if (!closed) update(message, false); }
+            }
+            if (pendingPrompt != null) prompt(pendingPrompt);
         });
     }
+    void focused() { if (release != null && !busy && !waitingForPermission) prompt(release); }
     private void prompt(JSONObject candidate) {
         activity.runOnUiThread(() -> {
             if (closed || activity.isFinishing() || activity.isDestroyed() || !activity.hasWindowFocus()) return;
@@ -124,6 +137,8 @@ final class AppUpdater {
         JSONObject candidate = release;
         update("Download starten...", true);
         worker.execute(() -> {
+            String message = "Update downloaden of controleren mislukt. Probeer opnieuw.";
+            boolean ready = false;
             File partial = null;
             HttpURLConnection connection = null;
             try {
@@ -157,14 +172,15 @@ final class AppUpdater {
                 if (destination.exists() && !destination.delete()) throw new IOException("Oude download verwijderen mislukt");
                 if (!partial.renameTo(destination)) throw new IOException("Download opslaan mislukt");
                 downloaded = destination;
-                update("Download gereed. Installeren...", false);
-                activity.runOnUiThread(this::install);
-            } catch (Exception error) { update("Update downloaden of controleren mislukt. Probeer opnieuw.", false); }
+                message = "Download gereed. Installeren...";
+                ready = true;
+            } catch (Exception error) { /* Keep the retry message; never install a failed download. */ }
             finally {
                 if (connection != null) connection.disconnect();
                 if (partial != null && partial.exists()) partial.delete();
-                busy = false;
+                synchronized (this) { busy = false; if (!closed) update(message, false); }
             }
+            if (ready) activity.runOnUiThread(this::install);
         });
     }
     private void validateApk(File apk, JSONObject candidate) throws Exception {
@@ -189,6 +205,8 @@ final class AppUpdater {
     }
     private void install() {
         if (closed || downloaded == null || !downloaded.isFile() || activity.isFinishing()) return;
+        if (!resumed) { pendingInstall = true; return; }
+        pendingInstall = false;
         try {
             if (!activity.getPackageManager().canRequestPackageInstalls()) {
                 waitingForPermission = true;
@@ -202,7 +220,10 @@ final class AppUpdater {
             update("Bevestig de installatie in Android.", false);
         } catch (Exception error) { update("De installer kon niet worden geopend. Probeer opnieuw.", false); }
     }
+    void pause() { resumed = false; }
     void resume() {
+        resumed = true;
+        if (pendingInstall) { install(); return; }
         if (waitingForPermission) {
             waitingForPermission = false;
             if (activity.getPackageManager().canRequestPackageInstalls()) install();
@@ -210,5 +231,5 @@ final class AppUpdater {
         }
         check(false);
     }
-    void close() { closed = true; worker.shutdownNow(); }
+    synchronized void close() { closed = true; worker.shutdownNow(); }
 }
