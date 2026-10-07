@@ -7,8 +7,8 @@ on:
       - 'app_config.json'
       - '*.md'
       - 'scripts/build-apk.ps1'
-      - 'build-apk.cmd'
-      - 'build-release.cmd'
+      - 'scripts/*.cmd'
+      - 'scripts/*.bat'
       - 'scripts/prepare-release-signing.ps1'
   workflow_dispatch:
 permissions:

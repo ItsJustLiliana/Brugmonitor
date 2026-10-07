@@ -54,7 +54,7 @@ tasks.configureEach { task ->
     if (task.name == 'validateSigningRelease') {
         task.doFirst {
             if (!signingPropertiesFile.isFile()) {
-                throw new GradleException('Release-sleutel ontbreekt. Bouw eerst met build-release.cmd.')
+                throw new GradleException('Release-sleutel ontbreekt. Bouw eerst met scripts/build-release.cmd.')
             }
         }
     }

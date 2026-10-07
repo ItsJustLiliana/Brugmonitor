@@ -80,3 +80,12 @@ desktop.ini
 *.swp
 *.swo
 *~
+
+# Finished documentation and local AI tooling
+*.md
+*.txt
+!requirements.txt
+.cursor/
+.claude/
+.gemini/
+.aider*
