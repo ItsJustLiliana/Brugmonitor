@@ -8,6 +8,8 @@ on:
       - '*.md'
       - 'scripts/build-apk.ps1'
       - 'build-apk.cmd'
+      - 'build-release.cmd'
+      - 'scripts/prepare-release-signing.ps1'
   workflow_dispatch:
 permissions:
   contents: read

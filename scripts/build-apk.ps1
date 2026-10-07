@@ -1,4 +1,4 @@
-param([switch]$RequireFirebase)
+param([switch]$RequireFirebase, [ValidateSet('Debug', 'Release')][string]$BuildType = 'Debug')
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $firebaseConfig = Join-Path $repoRoot 'android\app\google-services.json'
@@ -15,13 +15,17 @@ $javaCandidates = @($env:JAVA_HOME, 'C:\Program Files\Microsoft\jdk-17.0.18.8-ho
 $javaRoot = $javaCandidates | Where-Object { $_ -and (Test-Path -LiteralPath (Join-Path $_ 'bin\java.exe')) } | Select-Object -First 1
 if (-not $javaRoot) { throw 'Java 17 of nieuwer ontbreekt. Stel JAVA_HOME in.' }
 $env:JAVA_HOME = $javaRoot
+if ($BuildType -eq 'Release') {
+    & (Join-Path $PSScriptRoot 'prepare-release-signing.ps1') -JavaRoot $javaRoot
+}
+$variant = $BuildType.ToLowerInvariant()
 Set-Content -LiteralPath (Join-Path $repoRoot 'android\local.properties') -Value ('sdk.dir=' + $sdk.Replace('\', '/').Replace(':', '\:')) -Encoding ASCII
 Push-Location (Join-Path $repoRoot 'android')
 try {
-    & (Join-Path $javaRoot 'bin\java.exe') -classpath 'gradle\wrapper\gradle-wrapper.jar' org.gradle.wrapper.GradleWrapperMain --no-daemon assembleDebug lintDebug
+    & (Join-Path $javaRoot 'bin\java.exe') -classpath 'gradle\wrapper\gradle-wrapper.jar' org.gradle.wrapper.GradleWrapperMain --no-daemon "assemble$BuildType" "lint$BuildType"
     if ($LASTEXITCODE -ne 0) { throw 'Android build of lint mislukt.' }
     $dist = Join-Path $repoRoot 'dist'
     New-Item -ItemType Directory -Path $dist -Force | Out-Null
-    Copy-Item -LiteralPath 'app\build\outputs\apk\debug\app-debug.apk' -Destination (Join-Path $dist 'Brugmonitor-debug.apk') -Force
-    Write-Host ('APK gereed: ' + (Join-Path $dist 'Brugmonitor-debug.apk'))
+    Copy-Item -LiteralPath ("app\build\outputs\apk\$variant\app-$variant.apk") -Destination (Join-Path $dist ("Brugmonitor-$variant.apk")) -Force
+    Write-Host ('APK gereed: ' + (Join-Path $dist ("Brugmonitor-$variant.apk")))
 } finally { Pop-Location }

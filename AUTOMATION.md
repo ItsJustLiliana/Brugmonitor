@@ -1,6 +1,6 @@
 # Alleen de server automatisch bijwerken
 
-De workflow **Deploy Brugmonitor server** draait bij een serverwijziging op main. Eerst worden de tests uitgevoerd, daarna maakt GitHub via Tailscale verbinding met dezelfde Arch-server als StickStat. De server haalt main op, installeert dependencies, draait de tests en herstart brugmonitor.service en controleert of de diagnose-API bereikbaar is. Een mislukte update wordt niet als voltooid gemarkeerd. De APK bouw je zelf met build-apk.cmd.
+De workflow **Deploy Brugmonitor server** draait bij een serverwijziging op main. Eerst worden de tests uitgevoerd, daarna maakt GitHub via Tailscale verbinding met dezelfde Arch-server als StickStat. De server haalt main op, installeert dependencies, draait de tests en herstart brugmonitor.service en controleert of de diagnose-API bereikbaar is. Een mislukte update wordt niet als voltooid gemarkeerd. De APK bouw je zelf met build-release.cmd.
 
 ## Eenmalig instellen
 
@@ -18,7 +18,7 @@ Controleer op de server met `systemctl --user status brugmonitor.service` en `jo
 
 Pas alleen **version** in **app_config.json** aan, bijvoorbeeld **0.3.4**. Het buildnummer loopt automatisch op tijdens de Android-build; je hoeft dit niet meer in te vullen. Bewaar dezelfde ondertekeningssleutel op je computer.
 
-1. Bouw met **build-apk.cmd**. De APK staat in **dist/Brugmonitor-debug.apk**.
+1. Bouw met **build-release.cmd**. De APK staat in **dist/Brugmonitor-release.apk**.
 2. Publiceer het bestand **api/brugmonitor-release.php** uit **C:/wamp64/www/website** naar dezelfde api-map op je live website. Een kopie staat ook onder **deploy/website** in deze repository. Dit is eenmalig nodig; de live API bestond nog niet tijdens het instellen.
 3. Open https://liliananuzohra.com/edit-website, kies **Projects**, zoek **Brugmonitor**, en klik **Add Version**.
 4. Vul de versie in, upload de APK, voeg eventueel release notes toe en klik **Save Version**. Laat Coming soon en Archive uitgeschakeld.

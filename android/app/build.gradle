@@ -45,7 +45,37 @@ logger.lifecycle("Brugmonitor ${appConfig.version}, automatisch buildnummer ${co
 String configuredVersionName = appConfig.version
 def firebaseConfigured = file('google-services.json').exists()
 if (firebaseConfigured) { apply plugin: 'com.google.gms.google-services' }
+def signingPropertiesFile = rootProject.file('keystore.properties')
+def releaseSigning = new Properties()
+if (signingPropertiesFile.isFile()) {
+    signingPropertiesFile.withInputStream { releaseSigning.load(it) }
+}
+tasks.configureEach { task ->
+    if (task.name == 'validateSigningRelease') {
+        task.doFirst {
+            if (!signingPropertiesFile.isFile()) {
+                throw new GradleException('Release-sleutel ontbreekt. Bouw eerst met build-release.cmd.')
+            }
+        }
+    }
+}
 android {
+    signingConfigs {
+        release {
+            if (signingPropertiesFile.isFile()) {
+                storeFile rootProject.file(releaseSigning.getProperty('storeFile'))
+                storePassword releaseSigning.getProperty('storePassword')
+                keyAlias releaseSigning.getProperty('keyAlias')
+                keyPassword releaseSigning.getProperty('keyPassword')
+            }
+        }
+    }
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+            debuggable false
+        }
+    }
     namespace 'nl.brugmonitor.app'
     compileSdk 36
     defaultConfig {
