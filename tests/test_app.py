@@ -46,6 +46,9 @@ class AppTests(unittest.TestCase):
                 self.assertEqual(options.binary_location, "/usr/bin/chromium")
                 self.assertEqual(service.path, "/usr/bin/chromedriver")
                 self.assertIn("--no-sandbox", options.arguments)
+                self.assertIn("--disable-background-networking", options.arguments)
+                self.assertIn("--blink-settings=imagesEnabled=false", options.arguments)
+                self.assertEqual(options.page_load_strategy, "eager")
 
     def test_live_text_parser(self):
         for text, status in [("nog +/- 5 minuten", "OPEN"), ("langer open dan verwacht", "OPEN"), ("10 minuten geleden", "DICHT"), ("Onlangs gesloten", "DICHT")]:

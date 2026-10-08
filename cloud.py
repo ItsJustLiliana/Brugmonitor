@@ -92,6 +92,7 @@ class FirebaseRelay:
         self.last_publish = 0
         self.last_publish_at = None
         self.publish_ok = False
+        self.last_widget_fingerprint = None
         self.wake = threading.Event()
         self.stop = threading.Event()
         self.thread = None
@@ -109,17 +110,47 @@ class FirebaseRelay:
             data={"status": status, "event_id": payload["event_id"],
                   "title": title, "body": notification_body(status, payload.get("detail", "")),
                   "detail": payload.get("detail", ""),
+                  "live_text": payload.get("live_text", ""),
+                  "widget_only": str(payload.get("widget_only", False)).lower(),
                   "update": str(payload.get("update", False)).lower()},
             android=messaging.AndroidConfig(
                 priority="high", ttl=timedelta(seconds=max(1, ttl)), collapse_key="bridge-status",
             ),
         )
 
+    def publish_widget(self, state):
+        """Push timing changes straight to the Android widget without showing a notification."""
+        if state.get("status") not in ("OPEN", "DICHT"):
+            return False
+        fingerprint = json.dumps(
+            {k: state.get(k) for k in ("status", "live_text", "detail")},
+            sort_keys=True,
+        )
+        if fingerprint == self.last_widget_fingerprint:
+            return False
+        payload = {
+            "event_id": str(uuid.uuid4()),
+            "status": state["status"],
+            "live_text": state.get("live_text", ""),
+            "detail": state.get("detail", ""),
+            "widget_only": True,
+            "update": True,
+        }
+        try:
+            self.sender(payload, TTL_SECONDS)
+        except Exception:
+            log.exception("Live widget-update niet verstuurd; volgende broncontrole probeert opnieuw")
+            return False
+        self.last_widget_fingerprint = fingerprint
+        return True
+
     def publish(self, state, now=None):
         now = time.time() if now is None else now
         public = {k: v for k, v in state.items() if k != "error"}
         public["source"] = "https://www.brug-open.nl/brug/sas%20van%20gent/sas%20van%20gent%20brug"
         public["heartbeat_seconds"] = self.heartbeat
+        # Widget timing is latency-sensitive and is pushed independently of the Firestore heartbeat.
+        self.publish_widget(public)
         stable = {k: public.get(k) for k in ("status", "live_text", "detail", "history", "stale")}
         fingerprint = json.dumps(stable, sort_keys=True)
         if fingerprint == self.last_fingerprint and now - self.last_publish < self.heartbeat:

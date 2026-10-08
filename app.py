@@ -22,6 +22,8 @@ CHECK_INTERVAL = max(3, min(300, int(os.environ.get("CHECK_INTERVAL_SECONDS", "3
 TIMEZONE = ZoneInfo(os.environ.get("TZ", "Europe/Amsterdam"))
 PAGE_LOAD_TIMEOUT = 25
 RENDER_WAIT = 1.0
+BROWSER_RECYCLE_SECONDS = max(300, int(os.environ.get("BROWSER_RECYCLE_SECONDS", "1800")))
+BROWSER_PAGE_LOAD_STRATEGY = "eager"
 
 BASE_DIR = Path(__file__).resolve().parent
 app = Flask(__name__, static_folder=None)
@@ -109,6 +111,14 @@ def make_driver():
     opts = Options()
     opts.add_argument("--headless=new")
     opts.add_argument("--disable-gpu")
+    opts.add_argument("--disable-extensions")
+    opts.add_argument("--disable-background-networking")
+    opts.add_argument("--disable-default-apps")
+    opts.add_argument("--disable-sync")
+    opts.add_argument("--mute-audio")
+    opts.add_argument("--blink-settings=imagesEnabled=false")
+    opts.page_load_strategy = BROWSER_PAGE_LOAD_STRATEGY
+    opts.add_experimental_option("prefs", {"profile.managed_default_content_settings.images": 2, "profile.default_content_setting_values.notifications": 2})
     if os.environ.get("CHROME_NO_SANDBOX", "0") == "1":
         opts.add_argument("--no-sandbox")
     opts.add_argument("--disable-dev-shm-usage")
@@ -270,11 +280,19 @@ def publish_cloud():
 
 def monitor_loop():
     global driver
+    driver_started_at = 0.0
 
     while not stop_event.is_set():
         try:
+            if driver is not None and time.monotonic() - driver_started_at >= BROWSER_RECYCLE_SECONDS:
+                try:
+                    driver.quit()
+                except Exception:
+                    pass
+                driver = None
             if driver is None:
                 driver = make_driver()
+                driver_started_at = time.monotonic()
 
             result = scrape_once()
 
