@@ -77,15 +77,17 @@ def parse_live_indicator(text):
             "type": "open_overdue",
         }
 
-    m = re.fullmatch(
-        r"(\d+)\s*(seconde|seconden|minuut|minuten|uur|uren)\s+geleden",
-        t
-    )
+    # The bridge remains DICHT even after an hour (or a day). The upstream
+    # label can contain compound durations such as "1 uur en 5 minuten geleden";
+    # failing to recognise those previously made a healthy source look stale.
+    duration = r"(?:\d+\s*(?:seconde|seconden|minuut|minuten|uur|uren|dag|dagen))"
+    m = re.fullmatch(rf"({duration})(?:\s*(?:en|,)\s*({duration}))?\s+geleden", t)
     if m:
+        first = re.fullmatch(r"(\d+)\s*(\S+)", m.group(1))
         return {
             "status": "DICHT",
-            "amount": int(m.group(1)),
-            "unit": m.group(2),
+            "amount": int(first.group(1)),
+            "unit": first.group(2),
             "raw": norm(text),
             "type": "ago",
         }
