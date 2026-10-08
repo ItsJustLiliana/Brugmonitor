@@ -55,6 +55,19 @@ class AppTests(unittest.TestCase):
             self.assertEqual(app.parse_live_indicator(text)["status"], status)
         self.assertIsNone(app.parse_live_indicator("geen geldige data"))
 
+    def test_closed_for_over_an_hour_stays_fresh_when_source_checks_succeed(self):
+        for raw in ("1 uur geleden", "2 uren geleden", "1 uur en 5 minuten geleden",
+                    "2 uren, 15 minuten geleden", "1 dag geleden", "2 dagen en 3 uren geleden"):
+            with self.subTest(raw=raw), patch.object(app, "driver") as driver, patch.object(app.time, "sleep"):
+                driver.execute_script.return_value = {"topTexts": [{"text": raw, "y": 1}], "tables": []}
+                result = app.scrape_once()
+                self.assertEqual(result["status"], "DICHT")
+                self.assertEqual(result["live_text"], raw)
+                app.apply_result(result)
+                self.assertEqual(app.state["status"], "DICHT")
+                self.assertFalse(app.state["stale"])
+                self.assertEqual(app.state["last_success"], result["checked"].isoformat())
+
     def test_source_failure_retains_status_and_does_not_queue_push(self):
         app.state["status"] = "DICHT"
         original_driver = app.driver
